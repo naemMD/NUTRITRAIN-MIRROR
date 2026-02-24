@@ -1,0 +1,247 @@
+from sqlalchemy import Column, Integer, Float, String, ForeignKey, DateTime, Enum, func, event, JSON, Boolean, Text, Any
+from app.database import Base
+from sqlalchemy.orm import relationship
+from passlib.context import CryptContext
+from pydantic import BaseModel, EmailStr
+from typing import List, Optional
+from datetime import datetime
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+class Exercice(Base):
+    __tablename__ = 'exercice'
+
+    id = Column(Integer, primary_key=True)
+    exercice_name = Column(String(50), nullable=False)
+    target = Column(String(15), nullable=False)
+    is_bodyweight = Column(Boolean, default=False)
+    weight_required = Column(Boolean, default=False)
+    repetitions = Column(Integer, nullable=True)
+    num_sets = Column(Integer, nullable=True)
+    description = Column(String(100), nullable=False)
+    video_url = Column(String(200), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+class Training(Base):
+    __tablename__ = 'trainings'
+
+    id = Column(Integer, primary_key=True)
+    datetime = Column(DateTime, server_default=func.now())
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+
+class Meal(Base):
+    __tablename__ = "meals"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    name = Column(String(100), nullable=False)
+    description = Column(Text, nullable=True)
+    
+    total_calories = Column(Float, nullable=False, default=0.0)
+    total_proteins = Column(Float, nullable=False, default=0.0)
+    total_carbohydrates = Column(Float, nullable=False, default=0.0)
+    total_sugars = Column(Float, nullable=False, default=0.0)
+    total_lipids = Column(Float, nullable=False, default=0.0)
+    total_saturated_fats = Column(Float, nullable=False, default=0.0)
+    total_fiber = Column(Float, nullable=False, default=0.0)
+    total_salt = Column(Float, nullable=False, default=0.0)
+
+    aliments = Column(Text, nullable=False) 
+
+    meal_type = Column(String(50), nullable=True) # e.g. Breakfast
+    hourtime = Column(DateTime(timezone=True), nullable=False)
+    
+    is_consumed = Column(Boolean, default=False)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class MealBase(BaseModel):
+    name: str
+    hourtime: datetime
+    total_calories: float
+    total_proteins: float
+    total_carbohydrates: float
+    total_sugars: float
+    total_lipids: float
+    total_saturated_fats: float
+    total_fiber: float
+    total_salt: float
+    aliments: Any 
+
+class MealCreate(MealBase):
+    is_consumed: Optional[bool] = False
+
+class MealRead(MealBase):
+    id: int
+    user_id: int
+    created_at: datetime
+    is_consumed: bool
+
+    class Config:
+        from_attributes = True
+
+class UserGoalUpdate(BaseModel):
+    daily_caloric_needs: float
+
+class DashboardStats(BaseModel):
+    daily_caloric_goal: float = 2000.0
+    calories_consumed: float = 0.0
+    calories_remaining: float = 0.0
+    proteins_consumed: float = 0.0
+    carbs_consumed: float = 0.0
+    fats_consumed: float = 0.0
+    progress_percentage: float = 0.0
+
+class Users(Base):
+    __tablename__ = 'users'
+
+    id = Column(Integer, primary_key=True, autoincrement=True, unique=True)
+    _password = Column("password", String(200), nullable=False)
+    daily_caloric_needs = Column(Float, nullable=True)
+    goal_proteins = Column(Float, nullable=True)
+    goal_carbs = Column(Float, nullable=True)
+    goal_fats = Column(Float, nullable=True)
+
+    firstname = Column(String(50), nullable=False)
+    lastname = Column(String(50), nullable=False)
+    email = Column(String(50), nullable=False, unique=True)
+    age = Column(Integer(), nullable=False)
+    gender = Column(Enum('male', 'female', name='gender_enum'), nullable=False)
+    role = Column(Enum('admin', 'client', 'coach', name='role_enum'), nullable=False)
+    nationality = Column(String(15), nullable=True)
+    language = Column(String(15), nullable=True)
+    
+    unique_code = Column(String(10), unique=True, nullable=True)
+
+    city = Column(String(100), nullable=True)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+    
+    weight = Column(Float, nullable=True)
+    height = Column(Float, nullable=True)
+    goal = Column(Enum('lose_weight', 'gain_muscle', 'maintain_weight', name='goal_enum'), nullable=True)
+
+    coach_id = Column(Integer, ForeignKey('users.id'), nullable=True)
+    coach = relationship("Users", remote_side=[id], backref="clients")
+    created_at = Column(DateTime, server_default=func.now())
+
+    @property
+    def password(self):
+        return self._password
+
+    @password.setter
+    def password(self, plaintext_password):
+        self._password = pwd_context.hash(plaintext_password)
+
+    def verify_password(self, plain_password: str) -> bool:
+        return pwd_context.verify(plain_password, self.password)
+    
+class UserCreate(BaseModel):
+    firstname: str
+    lastname: str
+    email: EmailStr
+    password: str
+    role: str
+    
+    city: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    weight: Optional[float] = None
+    height: Optional[float] = None
+    goal: Optional[str] = None
+    
+class WorkoutExerciseBase(BaseModel):
+    name: str
+    muscle: str
+    num_sets: int
+    reps: Optional[int] = 0
+    weight: Optional[float] = 0.0
+    duration: Optional[int] = 0
+    rest_time: Optional[int] = 60
+
+class WorkoutExerciseCreate(WorkoutExerciseBase):
+    pass
+
+class WorkoutExerciseRead(WorkoutExerciseBase):
+    id: int
+    workout_id: int
+
+    class Config:
+        from_attributes = True
+
+class WorkoutBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    difficulty: str
+    scheduled_date: datetime
+
+class WorkoutCreate(WorkoutBase):
+    exercises: List[WorkoutExerciseCreate]
+
+class WorkoutRead(WorkoutBase):
+    id: int
+    user_id: int
+    created_at: datetime
+    exercises: List[WorkoutExerciseRead] = []
+
+    is_completed: bool = False
+
+    class Config:
+        from_attributes = True
+
+class Workout(Base):
+    __tablename__ = "workouts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    name = Column(String(100), nullable=False)
+    description = Column(Text, nullable=True)
+    difficulty = Column(String(50), nullable=False)
+    
+    scheduled_date = Column(DateTime(timezone=True), nullable=False)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    exercises = relationship("WorkoutExercise", back_populates="workout", cascade="all, delete-orphan")
+
+    is_completed = Column(Boolean, default=False)
+
+class WorkoutExercise(Base):
+    __tablename__ = "workout_exercises"
+
+    id = Column(Integer, primary_key=True, index=True)
+    workout_id = Column(Integer, ForeignKey("workouts.id"))
+    name = Column(String(100), nullable=False)
+    muscle = Column(String(50), nullable=False)
+    num_sets = Column(Integer, nullable=False)
+    reps = Column(Integer, nullable=False, default=0)
+    weight = Column(Float, nullable=False, default=0.0)
+    duration = Column(Integer, nullable=True, default=0)
+    rest_time = Column(Integer, nullable=True, default=60)
+
+    workout = relationship("Workout", back_populates="exercises")
+
+class MacroUpdate(BaseModel):
+    daily_caloric_needs: Optional[float] = None
+    goal_proteins: Optional[float] = None
+    goal_carbs: Optional[float] = None
+    goal_fats: Optional[float] = None
+
+__all__ = [
+    "Users",
+    "UserCreate",
+    "Meal",
+    "Training",
+    "Exercice",
+    "Workout",
+    "WorkoutExercise",
+    "WorkoutCreate",
+    "WorkoutRead",
+    "WorkoutExerciseCreate",
+    "WorkoutExerciseRead",
+    "MealCreate",
+    "MealRead",
+    "UserGoalUpdate",
+    "DashboardStats",
+    "MacroUpdate"
+    ]

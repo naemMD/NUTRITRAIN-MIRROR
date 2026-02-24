@@ -1,0 +1,517 @@
+# routes.py
+from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi.responses import JSONResponse
+from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from app.model import *
+from app.database import get_session
+from app.api import *
+from app.schemas import WorkoutCreate, WorkoutRead, MealRead
+from typing import List, Any, Optional
+from jose import JWTError, jwt
+from dotenv import load_dotenv
+from datetime import datetime
+import os
+
+router = APIRouter()
+load_dotenv()
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+
+async def get_current_user_id(token: str = Depends(oauth2_scheme)):
+    SECRET_KEY = os.getenv("SECRET_KEY")
+    ALGORITHM = os.getenv("ALGORITHM")
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: str = payload.get("userId")
+        if user_id is None:
+            raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+        return int(user_id)
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+
+
+@router.get("/users/me/dashboard-stats")
+async def get_dashboard_stats(
+    current_user: Any = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_session)
+):
+    print(f"DEBUG: Auth object received: {type(current_user)}")
+
+    try:
+        user_id = None
+        if hasattr(current_user, 'id'):
+            user_id = current_user.id
+        elif isinstance(current_user, dict):
+            user_id = current_user.get('id')
+        elif isinstance(current_user, int):
+            user_id = current_user
+        else:
+            user_id = int(str(current_user))
+            
+        print(f"DEBUG: Extracted User ID: {user_id}")
+
+        if not user_id:
+            return JSONResponse(content={"error": "User ID not found in token"}, status_code=401)
+
+        result_user = await session.execute(select(Users).where(Users.id == user_id))
+        user = result_user.scalars().first()
+        
+        goal = 2500.0
+        goal_proteins = 150.0
+        goal_carbs = 250.0
+        goal_fats = 70.0
+        
+        if user:
+            try:
+                if user.daily_caloric_needs: goal = float(user.daily_caloric_needs)
+                if user.goal_proteins: goal_proteins = float(user.goal_proteins)
+                if user.goal_carbs: goal_carbs = float(user.goal_carbs)
+                if user.goal_fats: goal_fats = float(user.goal_fats)
+            except:
+                pass
+
+        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        result_meals = await session.execute(
+            select(Meal)
+            .where(Meal.user_id == user_id)
+            .where(Meal.hourtime >= today_start)
+        )
+        today_meals = result_meals.scalars().all()
+
+        cals = 0.0
+        prots = 0.0
+        carbs = 0.0
+        fats = 0.0
+
+        for m in today_meals:
+            if m.is_consumed:
+                cals += float(m.total_calories or 0)
+                prots += float(m.total_proteins or 0)
+                carbs += float(m.total_carbohydrates or 0)
+                fats += float(m.total_lipids or 0)
+
+        remaining = max(0.0, goal - cals)
+        progress = min(1.0, cals / goal) if goal > 0 else 0.0
+
+        data = {
+            "daily_caloric_goal": goal,
+            "calories_consumed": cals,
+            "calories_remaining": remaining,
+            "proteins_consumed": prots,
+            "carbs_consumed": carbs,
+            "fats_consumed": fats,
+            "progress_percentage": progress,
+            "goal_proteins": goal_proteins,
+            "goal_carbs": goal_carbs,
+            "goal_fats": goal_fats
+        }
+
+        return JSONResponse(content=data, status_code=200)
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
+@router.get("/")
+async def read_root():
+    return {"hello world"}
+
+@router.get("/users/me/{user_id}")
+async def get_current_user(user_id: int, session: AsyncSession = Depends(get_session)):
+    result = await get_user_by_id(session, user_id)
+    return result
+
+@router.get("/users/get_daily_meals/{user_id}")
+async def get_daily_meals(user_id: int, session: AsyncSession = Depends(get_session)):
+    result = await get_meals_by_user(session, user_id)
+    return result
+
+@router.get("/coaches/list")
+async def list_coaches(session: AsyncSession = Depends(get_session)):
+    return await get_all_coaches(session)
+
+@router.get("/coaches/{coach_id}/clients")
+async def list_coach_clients(coach_id: int, session: AsyncSession = Depends(get_session)):
+    return await get_clients_by_coach_id(session, coach_id)
+
+@router.get("/coaches/client/{client_id}/dashboard-stats")
+async def get_client_dashboard_stats_for_coach(
+    client_id: int,
+    session: AsyncSession = Depends(get_session)
+):
+    result_user = await session.execute(select(User).where(User.id == client_id))
+    client = result_user.scalars().first()
+    
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+
+    today = datetime.now().date()
+    result_meals = await session.execute(
+        select(Meal).where(
+            Meal.user_id == client_id,
+            func.date(Meal.hourtime) == today
+        )
+    )
+    meals = result_meals.scalars().all()
+
+    calories_consumed = sum(m.total_calories for m in meals if m.is_consumed)
+    proteins_consumed = sum(m.total_proteins for m in meals if m.is_consumed)
+    carbs_consumed    = sum(m.total_carbohydrates for m in meals if m.is_consumed)
+    fats_consumed     = sum(m.total_lipids for m in meals if m.is_consumed)
+
+    daily_goal = client.daily_caloric_needs or 2500
+    progress = 0
+    if daily_goal > 0:
+        progress = calories_consumed / daily_goal
+
+    return {
+        "daily_caloric_goal": daily_goal,
+        "calories_consumed": calories_consumed,
+        "calories_remaining": daily_goal - calories_consumed,
+        "progress_percentage": progress,
+        
+        "proteins_consumed": proteins_consumed,
+        "carbs_consumed": carbs_consumed,
+        "fats_consumed": fats_consumed,
+        
+        "goal_proteins": client.goal_proteins if hasattr(client, 'goal_proteins') else 150,
+        "goal_carbs": client.goal_carbs if hasattr(client, 'goal_carbs') else 250,
+        "goal_fats": client.goal_fats if hasattr(client, 'goal_fats') else 70,
+    }
+@router.get("/getAlimentNutriment/{code}/{quantity}")
+async def get_aliment_nutriment(code: str, quantity: int, session: AsyncSession = Depends(get_session)):
+    return get_food_by_code(code, quantity)
+
+@router.get("/getAlimentFromApi/{aliment_name}")
+async def get_aliment_from_api(aliment_name: str, session: AsyncSession = Depends(get_session)):
+    return search_food(aliment_name)
+
+@router.get("/getMuscles/")
+async def get_muscles_from_api(session: AsyncSession = Depends(get_session)):
+    return get_muscles()
+
+@router.get("/getExercises/{muscle}")
+async def get_exercises_from_api(muscle: str, session: AsyncSession = Depends(get_session)):
+    return get_exercises(muscle)
+
+@router.get("/scan/{code}/{format}")
+async def scan_aliment(code: str, session: AsyncSession = Depends(get_session)):
+    return scan_food(code, format)
+
+@router.post("/register")
+async def add_user(request: Request, session: AsyncSession = Depends(get_session)):
+    userData = await request.json()
+    result = await register_user(session, userData)
+    return result
+
+@router.post("/login")
+async def check_user(request: Request, session: AsyncSession = Depends(get_session)):
+    userData = await request.json()
+    result = await login_user(session, userData)
+    return result
+
+@router.post("/addMeal/{userId}")
+async def add_meal(userId: int, request: Request, session: AsyncSession = Depends(get_session)):
+    mealData = await request.json()
+    result = await create_meal(session, userId, mealData)
+    return result
+
+@router.delete("/deleteMeal/{meal_id}")
+async def deleteMeal(meal_id: int, request: Request, session: AsyncSession = Depends(get_session)):
+    result = await delete_meal(session, meal_id)
+    return result
+
+@router.put("/updateMeal/{meal_id}")
+async def updateMeal(meal_id: int, request: Request, session: AsyncSession = Depends(get_session)):
+    mealData = await request.json()
+    result = await update_meal(session, meal_id, mealData)
+    return result
+
+@router.put("/users/{client_id}/assign-coach/{coach_id}")
+async def assign_coach(client_id: int, coach_id: int, session: AsyncSession = Depends(get_session)):
+    return await assign_coach_to_client(session, client_id, coach_id)
+
+@router.post("/coaches/{coach_id}/add-client")
+async def add_client_via_code(coach_id: int, request: Request, session: AsyncSession = Depends(get_session)):
+    data = await request.json()
+    unique_code = data.get("code")
+    return await assign_client_by_code(session, coach_id, unique_code)
+
+@router.get("/coaches/client-details/{client_id}")
+async def get_client_details_full(
+    client_id: int, 
+    target_date: Optional[str] = None,  # NOUVEAU : Paramètre de date
+    session: AsyncSession = Depends(get_session)
+):
+    result = await session.execute(select(Users).where(Users.id == client_id))
+    client = result.scalars().first()
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+
+    if target_date:
+        query_date = datetime.strptime(target_date, "%Y-%m-%d").date()
+    else:
+        query_date = datetime.now().date()
+    
+    result_meals = await session.execute(
+        select(Meal).where(Meal.user_id == client_id, func.date(Meal.hourtime) == query_date)
+    )
+    meals = result_meals.scalars().all()
+
+    result_workouts = await session.execute(
+        select(Workout).where(Workout.user_id == client_id, func.date(Workout.scheduled_date) == query_date)
+    )
+    workouts = result_workouts.scalars().all()
+    
+    current_cals = sum(m.total_calories for m in meals if m.is_consumed)
+    current_prot = sum(m.total_proteins for m in meals if m.is_consumed)
+    current_carb = sum(m.total_carbohydrates for m in meals if m.is_consumed)
+    current_fat  = sum(m.total_lipids for m in meals if m.is_consumed)
+
+    return {
+        "id": client.id,
+        "firstname": client.firstname,
+        "lastname": client.lastname,
+        "age": client.age,
+        "gender": client.gender,
+        "goal_calories": client.daily_caloric_needs or 2500,
+        "goals_macros": {
+            "proteins": client.goal_proteins or 150,
+            "carbs": client.goal_carbs or 250,
+            "fats": client.goal_fats or 70
+        },
+        "today_stats": {
+            "calories": current_cals,
+            "proteins": current_prot,
+            "carbs": current_carb,
+            "fats": current_fat
+        },
+        "meals_today": [
+            {
+                "id": m.id,
+                "name": m.name if hasattr(m, 'name') else m.aliment_name,
+                "calories": m.total_calories,
+                "is_consumed": m.is_consumed
+            } for m in meals
+        ],
+        "workouts_today": [
+            {
+                "id": w.id,
+                "name": w.name,
+                "is_completed": w.is_completed
+            } for w in workouts
+        ]
+    }
+
+@router.delete("/coaches/{coach_id}/clients/{client_id}")
+async def remove_client_route(coach_id: int, client_id: int, session: AsyncSession = Depends(get_session)):
+    return await unassign_client(session, coach_id, client_id)
+
+@router.get("/coaches/{coach_id}/home-summary")
+async def get_coach_home_summary_route(coach_id: int, session: AsyncSession = Depends(get_session)):
+    return await get_coach_home_summary(session, coach_id)
+
+@router.delete("/users/me/coach")
+async def leave_coach(user_id: int = Depends(get_current_user_id), session: AsyncSession = Depends(get_session)):
+    return await unassign_my_coach(session, user_id)
+
+@router.post("/workouts/create", status_code=201)
+async def create_workout_route(
+    workout_data: WorkoutCreate, 
+    user_id: int = Depends(get_current_user_id), 
+    session: AsyncSession = Depends(get_session)
+):
+    return await create_full_workout(session, user_id, workout_data)
+
+@router.delete("/workouts/{workout_id}")
+async def delete_workout_route(
+    workout_id: int, 
+    user_id: int = Depends(get_current_user_id), 
+    session: AsyncSession = Depends(get_session)
+):
+    result = await session.execute(
+        select(Workout).where(Workout.id == workout_id, Workout.user_id == user_id)
+    )
+    workout = result.scalars().first()
+    
+    if not workout:
+        raise HTTPException(status_code=404, detail="Workout not found")
+
+    await session.delete(workout)
+    await session.commit()
+    
+    return {"message": "Workout deleted"}
+
+@router.get("/workouts/my-workouts", response_model=List[WorkoutRead])
+async def get_my_workouts_route(
+    user_id: int = Depends(get_current_user_id), 
+    session: AsyncSession = Depends(get_session)
+):
+    return await get_user_workouts(session, user_id)
+
+@router.patch("/users/me/goals")
+async def update_user_goals(
+    goal_data: UserGoalUpdate,
+    current_user: Any = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_session)
+):
+    user_id = None
+    if hasattr(current_user, 'id'): user_id = current_user.id
+    elif isinstance(current_user, dict): user_id = current_user.get('id')
+    elif isinstance(current_user, int): user_id = current_user
+    else: user_id = int(str(current_user))
+
+    result = await session.execute(select(Users).where(Users.id == user_id))
+    user = result.scalars().first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.daily_caloric_needs = goal_data.daily_caloric_needs
+    
+    await session.commit()
+    return {"message": "Goal updated", "new_goal": user.daily_caloric_needs}
+
+@router.patch("/meals/{meal_id}/toggle-consume", response_model=MealRead)
+async def toggle_meal_consume(
+    meal_id: int,
+    user_id: int = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_session)
+):
+    result = await session.execute(select(Meal).where(Meal.id == meal_id, Meal.user_id == user_id))
+    meal = result.scalars().first()
+    
+    if not meal:
+        raise HTTPException(status_code=404, detail="Meal not found")
+
+    meal.is_consumed = not meal.is_consumed
+    
+    await session.commit()
+    await session.refresh(meal)
+    return meal
+
+@router.patch("/workouts/{workout_id}/toggle-complete")
+async def toggle_workout_complete(
+    workout_id: int,
+    user_id: int = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_session)
+):
+    result = await session.execute(
+        select(Workout).where(Workout.id == workout_id, Workout.user_id == user_id)
+    )
+    workout = result.scalars().first()
+    
+    if not workout:
+        raise HTTPException(status_code=404, detail="Workout not found")
+
+    workout.is_completed = not (workout.is_completed or False)
+    
+    await session.commit()
+    await session.refresh(workout)
+    
+    return workout
+
+@router.patch("/users/{user_id}/goals")
+async def update_user_goals(
+    user_id: int,
+    goal_data: MacroUpdate,
+    session: AsyncSession = Depends(get_session)
+):
+    result = await session.execute(select(Users).where(Users.id == user_id))
+    user = result.scalars().first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if goal_data.daily_caloric_needs is not None: user.daily_caloric_needs = goal_data.daily_caloric_needs
+    if goal_data.goal_proteins is not None: user.goal_proteins = goal_data.goal_proteins
+    if goal_data.goal_carbs is not None: user.goal_carbs = goal_data.goal_carbs
+    if goal_data.goal_fats is not None: user.goal_fats = goal_data.goal_fats
+
+    await session.commit()
+    return {"message": "Goals updated successfully"}
+
+@router.get("/coaches/client-details/{client_id}")
+async def get_client_details_full(client_id: int, session: AsyncSession = Depends(get_session)):
+    result = await session.execute(select(Users).where(Users.id == client_id))
+    client = result.scalars().first()
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+
+    today = datetime.now().date()
+    
+    result_meals = await session.execute(
+        select(Meal).where(Meal.user_id == client_id, func.date(Meal.hourtime) == today)
+    )
+    meals = result_meals.scalars().all()
+
+    result_workouts = await session.execute(
+        select(Workout).where(Workout.user_id == client_id, func.date(Workout.scheduled_date) == today)
+    )
+    workouts = result_workouts.scalars().all()
+    
+    current_cals = sum(m.total_calories for m in meals if m.is_consumed)
+    current_prot = sum(m.total_proteins for m in meals if m.is_consumed)
+    current_carb = sum(m.total_carbohydrates for m in meals if m.is_consumed)
+    current_fat  = sum(m.total_lipids for m in meals if m.is_consumed)
+
+    return {
+        "id": client.id,
+        "firstname": client.firstname,
+        "lastname": client.lastname,
+        "age": client.age,
+        "gender": client.gender,
+        "goal_calories": client.daily_caloric_needs or 2500,
+        "goals_macros": {
+            "proteins": client.goal_proteins or 150,
+            "carbs": client.goal_carbs or 250,
+            "fats": client.goal_fats or 70
+        },
+        "today_stats": {
+            "calories": current_cals,
+            "proteins": current_prot,
+            "carbs": current_carb,
+            "fats": current_fat
+        },
+        "meals_today": [
+            {
+                "id": m.id,
+                "name": m.aliment_name or "Repas",
+                "calories": m.total_calories,
+                "is_consumed": m.is_consumed
+            } for m in meals
+        ],
+        "workouts_today": [
+            {
+                "id": w.id,
+                "name": w.name,
+                "is_completed": w.is_completed
+            } for w in workouts
+        ]
+    }
+
+@router.get("/clients/search-coaches")
+async def search_coaches(
+    city: Optional[str] = None, 
+    session: AsyncSession = Depends(get_session)
+):
+    stmt = select(Users).where(Users.role == 'coach')
+    
+    if city:
+        stmt = stmt.where(Users.city.ilike(f"%{city}%"))
+        
+    result = await session.execute(stmt)
+    coaches = result.scalars().all()
+    
+    return [
+        {
+            "id": coach.id,
+            "firstname": coach.firstname,
+            "lastname": coach.lastname,
+            "city": coach.city
+        }
+        for coach in coaches
+    ]
