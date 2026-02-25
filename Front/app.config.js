@@ -45,7 +45,7 @@ export default {
     },
 
     extra: {
-      API_URL: "http://192.168.1.166:8080"
+      API_URL: "https://nutritrain-mirror-1.onrender.com"
     }
   }
 };
