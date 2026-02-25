@@ -6,7 +6,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 export default function ClientLayout() {
   const pathname = usePathname();
 
-  // Pages où il faut remplacer les boutons par "back" et cacher le footer
   const isSpecialPage =
     pathname === "/clients/profile" ||
     pathname === "/clients/subscription";
@@ -15,30 +14,25 @@ export default function ClientLayout() {
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={{ flex: 1, backgroundColor: "#0D1117" }}>
 
-        {/* HEADER */}
         <View style={styles.header}>
           
-          {/* LEFT SIDE */}
           {isSpecialPage ? (
             <TouchableOpacity onPress={() => router.back()}>
               <Ionicons name="arrow-back" size={28} color="white" />
             </TouchableOpacity>
           ) : (
             <TouchableOpacity onPress={() => router.push("/clients/profile")}>
-              <Image
-                source={{ uri: "PATH" }}
-                style={styles.profileImage}
-              />
+              <View style={styles.profilePlaceholder}>
+                <Ionicons name="person" size={20} color="white" />
+              </View>
             </TouchableOpacity>
           )}
 
-          {/* TITLE */}
           <Text style={styles.appName}>
             <Text style={styles.appNameBlue}>NUTRI</Text>
             <Text style={styles.appNameWhite}>TRAIN</Text>
           </Text>
 
-          {/* RIGHT SIDE */}
           {isSpecialPage ? (
             <View style={{ width: 30 }} />
           ) : (
@@ -46,38 +40,36 @@ export default function ClientLayout() {
               style={styles.starButton}
               onPress={() => router.push("/clients/subscription")}
             >
-              <Ionicons name="star" size={30} color="#EAEA45" />
+              <Ionicons name="star" size={28} color="#EAEA45" />
             </TouchableOpacity>
           )}
 
         </View>
 
-        {/* PAGE CONTENT */}
         <View style={{ flex: 1 }}>
           <Stack screenOptions={{ headerShown: false }} />
         </View>
 
-        {/* FOOTER */}
         {!isSpecialPage && (
           <View style={styles.footer}>
             <TouchableOpacity onPress={() => router.push("/clients/home")}>
-              <Ionicons name="home" size={28} color="white" />
+              <Ionicons name="home" size={26} color={pathname === "/clients/home" ? "#3498DB" : "white"} />
             </TouchableOpacity>
 
             <TouchableOpacity onPress={() => router.push("/clients/trainings")}>
-              <Ionicons name="barbell" size={28} color="white" />
+              <Ionicons name="barbell" size={26} color={pathname === "/clients/trainings" ? "#3498DB" : "white"} />
             </TouchableOpacity>
 
             <TouchableOpacity onPress={() => router.push("/clients/forum")}>
-              <Ionicons name="people" size={28} color="white" />
+              <Ionicons name="chatbubbles" size={26} color={pathname === "/clients/forum" ? "#3498DB" : "white"} />
             </TouchableOpacity>
 
             <TouchableOpacity onPress={() => router.push("/clients/coach")}>
-              <Ionicons name="person" size={28} color="white" />
+              <Ionicons name="people" size={26} color={pathname === "/clients/coach" ? "#3498DB" : "white"} />
             </TouchableOpacity>
 
             <TouchableOpacity onPress={() => router.push("/clients/settings")}>
-              <Ionicons name="settings" size={28} color="white" />
+              <Ionicons name="settings" size={26} color={pathname === "/clients/settings" ? "#3498DB" : "white"} />
             </TouchableOpacity>
           </View>
         )}
@@ -88,10 +80,7 @@ export default function ClientLayout() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#161B22", // Même couleur que le header
-  },
+  container: { flex: 1, backgroundColor: "#161B22" },
   header: {
     height: 70,
     paddingHorizontal: 20,
@@ -100,15 +89,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  profileImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#2C3E50",
+  profilePlaceholder: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#2A4562",
+    justifyContent: 'center',
+    alignItems: 'center'
   },
-  starButton: {
-    padding: 5,
-  },
+  appName: { fontSize: 22, fontWeight: "bold" },
+  appNameBlue: { color: "#3498DB" },
+  appNameWhite: { color: "#FFFFFF" },
+  starButton: { padding: 5 },
   footer: {
     height: 70,
     backgroundColor: "#161B22",
@@ -117,15 +109,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderTopWidth: 1,
     borderTopColor: "#222",
-  },
-  appName: {
-    fontSize: 24,
-    fontWeight: "bold",
-  },
-  appNameBlue: {
-    color: "#3498DB",
-  },
-  appNameWhite: {
-    color: "#FFFFFF",
   },
 });

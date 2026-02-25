@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, Image, TouchableOpacity, ScrollView, Alert, Clipboard } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Alert, Clipboard, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import axios from 'axios';
@@ -9,18 +9,20 @@ import { getUserDetails } from '@/services/authStorage';
 const ProfileScreen = () => {
   const insets = useSafeAreaInsets();
   const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const API_URL = Constants.expoConfig?.extra?.API_URL ?? '';
 
   const loadData = async () => {
     try {
         const session = await getUserDetails();
         if (session?.id) {
-             // On requête l'API pour être sûr d'avoir le champ unique_code (s'il vient d'être ajouté en BDD)
             const response = await axios.get(`${API_URL}/users/me/${session.id}`);
             setUser(response.data);
         }
     } catch (e) {
         console.log(e);
+    } finally {
+        setLoading(false);
     }
   };
 
@@ -31,208 +33,122 @@ const ProfileScreen = () => {
   const copyToClipboard = () => {
       if (user?.unique_code) {
           Clipboard.setString(user.unique_code);
-          Alert.alert("Copied!", "Your code has been copied to clipboard.");
+          Alert.alert("Copied!", "Your identification code is ready to be sent to your coach.");
       }
   };
 
-  return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      
-      <Text style={styles.screenTitle}>Your profile</Text>
-      
-      <View style={styles.profileSection}>
-        <View style={styles.profileImageContainer}>
-          <Image
-            source={{ uri: 'PATH' }}
-            style={styles.profileImage}
-          />
-          <Text style={styles.editPhotoText}>Edit profile picture</Text>
-        </View>
-        
-        <View style={styles.profileDetails}>
-          <Text style={styles.userName}>{user?.firstname} {user?.lastname}</Text>
-          <Text style={styles.userDetail}>Gender : {user?.gender}</Text>
-          <Text style={styles.userDetail}>Age : {user?.age}</Text>
-          
-          {/* SECTION CODE UNIQUE */}
-          {user?.unique_code && (
-              <TouchableOpacity style={styles.codeContainer} onPress={copyToClipboard}>
-                  <Text style={styles.codeLabel}>My Code:</Text>
-                  <Text style={styles.codeValue}>{user.unique_code}</Text>
-                  <Ionicons name="copy-outline" size={16} color="#3498DB" style={{marginLeft: 5}}/>
-              </TouchableOpacity>
-          )}
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center' }]}>
+        <ActivityIndicator size="large" color="#3498DB" />
+      </View>
+    );
+  }
 
-          <TouchableOpacity style={styles.editButton}>
-            <Text style={styles.editButtonText}>Edit</Text>
-          </TouchableOpacity>
+  return (
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <View style={styles.headerCard}>
+        <View style={styles.avatarLarge}>
+          <Text style={styles.avatarText}>{user?.firstname?.[0]}</Text>
         </View>
-      </View>
-      
-      <Text style={styles.trainingTitle}>Training plans</Text>
-      
-      <View style={styles.trainingCalendar}>
-        <TouchableOpacity>
-          <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
-        </TouchableOpacity>
-        <Text style={styles.dayText}>Friday</Text>
-        <TouchableOpacity>
-          <Ionicons name="chevron-forward" size={28} color="#FFFFFF" />
+        <Text style={styles.userName}>{user?.firstname} {user?.lastname}</Text>
+        <Text style={styles.userSub}>{user?.email}</Text>
+        
+        <TouchableOpacity style={styles.editBtn}>
+          <Text style={styles.editBtnText}>Edit Profile</Text>
         </TouchableOpacity>
       </View>
-      
-      <ScrollView style={styles.exercisesContainer} showsVerticalScrollIndicator={false}>
-        <View style={styles.exerciseCard}>
-          <View style={styles.exerciseInfo}>
-            <Text style={styles.exerciseName}>Side lateral raises</Text>
-            <Text style={styles.exerciseDetail}>3 x 10 reps</Text>
-            <Text style={styles.exerciseDetail}>Weight : 18kg</Text>
-          </View>
-          <TouchableOpacity style={styles.viewButton}>
-            <Text style={styles.viewButtonText}>View</Text>
-          </TouchableOpacity>
+
+      <Text style={styles.sectionTitle}>Coaching Connection</Text>
+      <View style={styles.card}>
+        <Text style={styles.cardInfo}>Share this code with your coach to link your accounts:</Text>
+        <TouchableOpacity style={styles.codeContainer} onPress={copyToClipboard}>
+            <View>
+                <Text style={styles.codeLabel}>My Unique Code</Text>
+                <Text style={styles.codeValue}>{user?.unique_code || "---"}</Text>
+            </View>
+            <Ionicons name="copy-outline" size={24} color="#3498DB" />
+        </TouchableOpacity>
+      </View>
+
+      <Text style={styles.sectionTitle}>Body Metrics</Text>
+      <View style={styles.metricsRow}>
+        <View style={styles.metricCard}>
+            <Ionicons name="man-outline" size={20} color="#3498DB" />
+            <Text style={styles.metricValue}>{user?.height || '--'} cm</Text>
+            <Text style={styles.metricLabel}>Height</Text>
         </View>
-        {/* Autres exercices... */}
-      </ScrollView>
-    </View>
+        <View style={styles.metricCard}>
+            <Ionicons name="speedometer-outline" size={20} color="#3498DB" />
+            <Text style={styles.metricValue}>{user?.weight || '--'} kg</Text>
+            <Text style={styles.metricLabel}>Weight</Text>
+        </View>
+        <View style={styles.metricCard}>
+            <Ionicons name="calendar-outline" size={20} color="#3498DB" />
+            <Text style={styles.metricValue}>{user?.age || '--'}</Text>
+            <Text style={styles.metricLabel}>Age</Text>
+        </View>
+      </View>
+
+      <Text style={styles.sectionTitle}>Personal Goal</Text>
+      <View style={styles.card}>
+        <View style={styles.goalItem}>
+            <View style={styles.iconCircle}>
+                <Ionicons name="trophy-outline" size={20} color="#f1c40f" />
+            </View>
+            <View style={{ marginLeft: 15 }}>
+                <Text style={styles.goalText}>{user?.goal || "No goal set yet"}</Text>
+                <Text style={styles.goalSub}>Primary objective</Text>
+            </View>
+        </View>
+      </View>
+
+      <View style={{ height: 40 }} />
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1A1F2B',
-    paddingHorizontal: 16,
+  container: { flex: 1, backgroundColor: '#1A1F2B', paddingHorizontal: 16 },
+  
+  headerCard: { alignItems: 'center', marginVertical: 20 },
+  avatarLarge: { 
+    width: 90, height: 90, borderRadius: 45, backgroundColor: '#3498DB', 
+    justifyContent: 'center', alignItems: 'center', marginBottom: 15,
+    borderWidth: 3, borderColor: '#2A4562'
   },
-  screenTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 20,
-    textAlign: 'center',
+  avatarText: { fontSize: 36, fontWeight: 'bold', color: 'white' },
+  userName: { color: 'white', fontSize: 22, fontWeight: 'bold' },
+  userSub: { color: '#888', fontSize: 13, marginTop: 4 },
+  editBtn: { backgroundColor: '#2A4562', paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20, marginTop: 15 },
+  editBtnText: { color: 'white', fontSize: 12, fontWeight: 'bold' },
+
+  sectionTitle: { fontSize: 16, fontWeight: 'bold', color: 'white', marginTop: 20, marginBottom: 12, marginLeft: 5 },
+  card: { backgroundColor: '#2A4562', borderRadius: 15, padding: 15 },
+  cardInfo: { color: '#aaa', fontSize: 12, marginBottom: 15, lineHeight: 18 },
+
+  codeContainer: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    backgroundColor: '#1A1F2B', 
+    padding: 15, 
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#3498DB'
   },
-  profileSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 30,
-  },
-  profileImageContainer: {
-    alignItems: 'center',
-    marginRight: 20,
-  },
-  profileImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#CCCCCC',
-    marginBottom: 5,
-  },
-  editPhotoText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-  },
-  profileDetails: {
-    flex: 1,
-  },
-  userName: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 5,
-  },
-  userDetail: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    marginBottom: 2,
-  },
-  // NOUVEAUX STYLES CODE
-  codeContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: '#2A4562',
-      padding: 8,
-      borderRadius: 8,
-      marginTop: 5,
-      alignSelf: 'flex-start'
-  },
-  codeLabel: {
-      color: '#aaa',
-      fontSize: 12,
-      marginRight: 5
-  },
-  codeValue: {
-      color: '#3498DB',
-      fontWeight: 'bold',
-      fontSize: 16
-  },
-  editButton: {
-    backgroundColor: '#3498DB',
-    borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 20,
-    alignSelf: 'flex-end',
-    marginTop: 10,
-  },
-  editButtonText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-  },
-  trainingTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 15,
-  },
-  trainingCalendar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#2A4562',
-    borderRadius: 25,
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    marginBottom: 15,
-  },
-  dayText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  exercisesContainer: {
-    flex: 1,
-  },
-  exerciseCard: {
-    backgroundColor: '#2A4562',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 10,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  exerciseInfo: {
-    flex: 1,
-  },
-  exerciseName: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 5,
-  },
-  exerciseDetail: {
-    color: '#FFFFFF',
-    fontSize: 14,
-  },
-  viewButton: {
-    backgroundColor: '#3498DB',
-    borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 20,
-  },
-  viewButtonText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-  },
+  codeLabel: { color: '#888', fontSize: 10, textTransform: 'uppercase', marginBottom: 2 },
+  codeValue: { color: 'white', fontSize: 20, fontWeight: 'bold', letterSpacing: 1 },
+
+  metricsRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  metricCard: { backgroundColor: '#2A4562', width: '31%', padding: 15, borderRadius: 15, alignItems: 'center' },
+  metricValue: { color: 'white', fontSize: 16, fontWeight: 'bold', marginTop: 8 },
+  metricLabel: { color: '#888', fontSize: 11, marginTop: 2 },
+
+  goalItem: { flexDirection: 'row', alignItems: 'center' },
+  iconCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(241, 196, 15, 0.1)', justifyContent: 'center', alignItems: 'center' },
+  goalText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
+  goalSub: { color: '#888', fontSize: 12 }
 });
 
 export default ProfileScreen;

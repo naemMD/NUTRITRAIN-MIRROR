@@ -3,7 +3,7 @@ from app.database import Base
 from sqlalchemy.orm import relationship
 from passlib.context import CryptContext
 from pydantic import BaseModel, EmailStr
-from typing import List, Optional
+from typing import List, Optional, Dict
 from datetime import datetime
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -29,6 +29,15 @@ class Training(Base):
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     created_at = Column(DateTime, server_default=func.now())
 
+class MealCreateByCoach(BaseModel):
+    name: str
+    total_calories: float
+    total_proteins: float
+    total_carbohydrates: float
+    total_lipids: float
+    date_of_meal: datetime
+    aliments: List[Dict[str, Any]]
+
 class Meal(Base):
     __tablename__ = "meals"
 
@@ -48,7 +57,7 @@ class Meal(Base):
 
     aliments = Column(Text, nullable=False) 
 
-    meal_type = Column(String(50), nullable=True) # e.g. Breakfast
+    meal_type = Column(String(50), nullable=True)
     hourtime = Column(DateTime(timezone=True), nullable=False)
     
     is_consumed = Column(Boolean, default=False)
@@ -149,15 +158,19 @@ class UserCreate(BaseModel):
     weight: Optional[float] = None
     height: Optional[float] = None
     goal: Optional[str] = None
+
+class ExerciseSetDetail(BaseModel):
+    set_number: int
+    reps: Optional[int] = 0
+    weight: Optional[float] = 0.0
+    duration: Optional[int] = 0
     
 class WorkoutExerciseBase(BaseModel):
     name: str
     muscle: str
     num_sets: int
-    reps: Optional[int] = 0
-    weight: Optional[float] = 0.0
-    duration: Optional[int] = 0
     rest_time: Optional[int] = 60
+    sets_details: List[ExerciseSetDetail] = []
 
 class WorkoutExerciseCreate(WorkoutExerciseBase):
     pass
@@ -214,10 +227,8 @@ class WorkoutExercise(Base):
     name = Column(String(100), nullable=False)
     muscle = Column(String(50), nullable=False)
     num_sets = Column(Integer, nullable=False)
-    reps = Column(Integer, nullable=False, default=0)
-    weight = Column(Float, nullable=False, default=0.0)
-    duration = Column(Integer, nullable=True, default=0)
     rest_time = Column(Integer, nullable=True, default=60)
+    sets_details = Column(JSON, nullable=True)
 
     workout = relationship("Workout", back_populates="exercises")
 
@@ -244,4 +255,4 @@ __all__ = [
     "UserGoalUpdate",
     "DashboardStats",
     "MacroUpdate"
-    ]
+]

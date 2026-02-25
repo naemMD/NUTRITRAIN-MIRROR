@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { 
   StyleSheet, Text, View, TouchableOpacity, FlatList, ActivityIndicator, 
-  Modal, ScrollView, Animated, PanResponder, Dimensions, Alert 
+  Modal, ScrollView, Animated, PanResponder, Dimensions, Alert, TouchableWithoutFeedback 
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -78,10 +78,9 @@ const TrainingDashboard = () => {
       });
       const allWorkouts = res.data;
       
-      // On s'assure que is_completed est bien géré (booléen)
       const sanitizedWorkouts = allWorkouts.map((w:any) => ({
           ...w,
-          is_completed: !!w.is_completed // Force boolean
+          is_completed: !!w.is_completed
       }));
 
       setWorkouts(sanitizedWorkouts);
@@ -89,7 +88,6 @@ const TrainingDashboard = () => {
       const marks: any = {};
       sanitizedWorkouts.forEach((w: any) => {
         const dateStr = w.scheduled_date.split('T')[0];
-        // Couleur différente si terminé
         const dotColor = w.is_completed ? '#2ecc71' : '#e74c3c'; 
         marks[dateStr] = { marked: true, dotColor: dotColor };
       });
@@ -101,25 +99,21 @@ const TrainingDashboard = () => {
     }
   };
 
-  // --- NOUVELLE FONCTION : CHECK WORKOUT ---
   const handleToggleWorkout = async (workoutId: number) => {
-      // 1. Sauvegarde pour rollback
       const previousWorkouts = [...workouts];
 
-      // 2. Mise à jour Optimiste (UI immédiate)
       setWorkouts(prev => prev.map(w => 
           w.id === workoutId ? { ...w, is_completed: !w.is_completed } : w
       ));
 
       try {
           const token = await getToken();
-          // Appel de la route PATCH que nous avons créée
           await axios.patch(`${API_URL}/workouts/${workoutId}/toggle-complete`, {}, {
               headers: { Authorization: `Bearer ${token}` }
           });
       } catch (error) {
           console.error("Error toggling workout:", error);
-          setWorkouts(previousWorkouts); // On remet comme avant si erreur
+          setWorkouts(previousWorkouts); 
           Alert.alert("Error", "Could not update status.");
       }
   };
@@ -157,7 +151,15 @@ const TrainingDashboard = () => {
       setDetailModalVisible(true);
   };
 
-  // --- MODIFICATION ICI : Rendu de la carte avec bouton Check ---
+  // --- NOUVEAU : Fonction de parsing sécurisée pour éviter les crashs ---
+  const safeParseSets = (sets: any) => {
+    if (!sets) return [];
+    if (typeof sets === 'string') {
+      try { return JSON.parse(sets); } catch (e) { return []; }
+    }
+    return sets;
+  };
+
   const renderWorkoutItem = ({ item }: { item: any }) => {
     const time = new Date(item.scheduled_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     
@@ -172,13 +174,11 @@ const TrainingDashboard = () => {
     return (
       <TouchableOpacity onPress={() => openWorkoutDetails(item)} activeOpacity={0.7}>
         <View style={[styles.card, isDone && styles.cardCompleted]}>
-            {/* Partie Gauche : Heure */}
             <View style={styles.cardLeft}>
                 <Text style={[styles.cardTime, isDone && {color: '#888'}]}>{time}</Text>
                 <View style={[styles.verticalLine, isDone && {backgroundColor: '#2ecc71'}]} />
             </View>
 
-            {/* Partie Centrale : Infos */}
             <View style={styles.cardContent}>
                 <Text style={[styles.cardTitle, isDone && styles.textCompleted]}>{item.name}</Text>
                 <Text style={styles.cardSubtitle}>
@@ -186,9 +186,7 @@ const TrainingDashboard = () => {
                 </Text>
             </View>
             
-            {/* Partie Droite : Actions (Check + Eye) */}
             <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                {/* BOUTON CHECK : On met un TouchableOpacity dédié */}
                 <TouchableOpacity 
                     onPress={() => handleToggleWorkout(item.id)} 
                     style={{padding: 8, marginRight: 5}}
@@ -210,7 +208,6 @@ const TrainingDashboard = () => {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       
-      {/* HEADER + CALENDRIER */}
       <View style={styles.fixedBackground}>
           <View style={styles.header}>
             <Text style={styles.headerTitle}>Training Plan</Text>
@@ -252,7 +249,6 @@ const TrainingDashboard = () => {
           />
       </View>
 
-      {/* BOTTOM SHEET */}
       <Animated.View style={[styles.bottomSheet, { top: panY, height: SCREEN_HEIGHT }]}>
         <View {...panResponder.panHandlers} style={styles.dragHandleArea}>
             <View style={styles.dragHandleBar} />
@@ -282,10 +278,16 @@ const TrainingDashboard = () => {
         </TouchableOpacity>
       </Animated.View>
 
-      {/* MODAL DETAILS */}
+      {/* --- MODALE DÉTAILS --- */}
       <Modal visible={detailModalVisible} animationType="slide" transparent onRequestClose={() => setDetailModalVisible(false)}>
-          <View style={styles.modalBackground}>
-              <View style={styles.modalContainer}>
+          {/* TouchableOpacity parent pour fermer au clic à l'extérieur */}
+          <TouchableOpacity 
+            style={styles.modalBackground} 
+            activeOpacity={1} 
+            onPressOut={() => setDetailModalVisible(false)}
+          >
+              {/* TouchableOpacity enfant pour bloquer la fermeture si on clique SUR la modale */}
+              <TouchableOpacity activeOpacity={1} style={styles.modalContainer}>
                   {selectedWorkout && (
                       <>
                         <View style={styles.modalHeader}>
@@ -296,49 +298,52 @@ const TrainingDashboard = () => {
                                 </Text>
                             </View>
                             
-                            {/* BOUTONS ACTIONS */}
-                            <View style={{flexDirection: 'row', gap: 15}}>
-                                {/* BOUTON DELETE */}
+                            <View style={{flexDirection: 'row', gap: 15, alignItems: 'center'}}>
                                 <TouchableOpacity onPress={() => handleDeleteWorkout(selectedWorkout.id)}>
                                     <Ionicons name="trash-outline" size={26} color="#e74c3c" />
                                 </TouchableOpacity>
 
-                                {/* BOUTON CLOSE */}
                                 <TouchableOpacity onPress={() => setDetailModalVisible(false)}>
                                     <Ionicons name="close-circle" size={30} color="#666" />
                                 </TouchableOpacity>
                             </View>
                         </View>
 
-                        <ScrollView style={{marginTop: 15}}>
+                        <ScrollView style={{marginTop: 15}} showsVerticalScrollIndicator={false}>
                             {
                                 (typeof selectedWorkout.exercises === 'string' 
                                     ? JSON.parse(selectedWorkout.exercises) 
                                     : selectedWorkout.exercises
                                 ).map((exo: any, index: number) => (
                                 <View key={index} style={styles.detailRow}>
-                                    <View style={{flex: 1}}>
+                                    <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 8}}>
                                         <Text style={styles.detailExoName}>{index+1}. {exo.name}</Text>
-                                        <Text style={styles.detailMuscle}>{exo.muscle.toUpperCase()}</Text>
+                                        <View style={styles.muscleBadge}>
+                                            <Text style={styles.detailMuscle}>{exo.muscle}</Text>
+                                        </View>
                                     </View>
-                                    <View style={styles.detailStats}>
-                                        {exo.duration > 0 ? (
-                                            <Text style={styles.statTextHighlight}>
-                                                {exo.sets} sets x <Text style={{color: '#e67e22'}}>{exo.duration}s</Text>
-                                            </Text>
-                                        ) : (
-                                            <Text style={styles.statTextHighlight}>
-                                                {exo.sets} x {exo.reps} <Text style={{color:'#666'}}>@</Text> {exo.weight}kg
-                                            </Text>
-                                        )}
+                                    
+                                    {/* Affichage liste des Séries */}
+                                    <View style={styles.setsContainer}>
+                                        {safeParseSets(exo.sets_details).map((s: any, i: number) => (
+                                            <View key={i} style={styles.setRow}>
+                                                <Text style={styles.setNumber}>Set {s.set_number}</Text>
+                                                <View style={styles.setValues}>
+                                                    <Text style={styles.setValueText}>
+                                                        {s.duration > 0 ? `${s.duration}s` : `${s.reps} reps`}
+                                                    </Text>
+                                                    {s.weight > 0 && <Text style={styles.setWeightText}>{s.weight} kg</Text>}
+                                                </View>
+                                            </View>
+                                        ))}
                                     </View>
                                 </View>
                             ))}
                         </ScrollView>
                       </>
                   )}
-              </View>
-          </View>
+              </TouchableOpacity>
+          </TouchableOpacity>
       </Modal>
 
     </View>
@@ -361,10 +366,9 @@ const styles = StyleSheet.create({
   sheetContent: { flex: 1, paddingHorizontal: 20 },
   sectionTitle: { color: '#888', fontSize: 14, marginBottom: 15, textTransform: 'uppercase', letterSpacing: 1, marginTop: 5 },
   
-  // MODIF STYLES CARTE
   card: { flexDirection: 'row', backgroundColor: '#1A1F2B', padding: 15, borderRadius: 12, marginBottom: 12, alignItems: 'center' },
-  cardCompleted: { backgroundColor: '#1e2530', opacity: 0.8 }, // Style quand terminé
-  textCompleted: { color: '#888', textDecorationLine: 'line-through' }, // Texte barré
+  cardCompleted: { backgroundColor: '#1e2530', opacity: 0.8 }, 
+  textCompleted: { color: '#888', textDecorationLine: 'line-through' }, 
 
   cardLeft: { alignItems: 'center', marginRight: 15, width: 50 },
   cardTime: { color: 'white', fontWeight: 'bold', fontSize: 16, marginBottom: 5 },
@@ -376,15 +380,23 @@ const styles = StyleSheet.create({
   emptyText: { color: 'white', fontSize: 18, fontWeight: 'bold' },
   emptySubText: { color: '#666', fontSize: 14 },
   fab: { position: 'absolute', bottom: 120, right: 30, backgroundColor: '#3498DB', width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', elevation: 5 },
+  
   modalBackground: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', padding: 20 },
-  modalContainer: { backgroundColor: '#232D3F', borderRadius: 15, padding: 20, maxHeight: '80%' },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#333', paddingBottom: 15 },
+  modalContainer: { backgroundColor: '#1A1F2B', borderRadius: 15, padding: 20, maxHeight: '85%', borderWidth: 1, borderColor: '#3498DB' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#2A4562', paddingBottom: 15 },
   modalTitle: { color: 'white', fontSize: 20, fontWeight: 'bold' },
-  detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
-  detailExoName: { color: 'white', fontSize: 16, fontWeight: '600' },
-  detailMuscle: { color: '#3498DB', fontSize: 10, fontWeight: 'bold', marginTop: 2 },
-  detailStats: { backgroundColor: '#1A1F2B', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
-  statTextHighlight: { color: 'white', fontWeight: 'bold', fontSize: 14 },
+  
+  detailRow: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+  detailExoName: { color: 'white', fontSize: 16, fontWeight: 'bold', marginRight: 10 },
+  muscleBadge: { backgroundColor: '#2A4562', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
+  detailMuscle: { color: '#3498DB', fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase' },
+  
+  setsContainer: { backgroundColor: '#232D3F', borderRadius: 8, padding: 10, marginTop: 5 },
+  setRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 },
+  setNumber: { color: '#888', fontSize: 13, fontWeight: 'bold' },
+  setValues: { flexDirection: 'row', alignItems: 'center' },
+  setValueText: { color: 'white', fontSize: 14, fontWeight: 'bold', width: 70, textAlign: 'right' },
+  setWeightText: { color: '#3498DB', fontSize: 14, fontWeight: 'bold', marginLeft: 10, width: 60, textAlign: 'right' }
 });
 
 export default TrainingDashboard;

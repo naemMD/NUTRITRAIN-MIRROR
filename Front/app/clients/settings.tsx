@@ -1,102 +1,138 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, Image, TouchableOpacity, ScrollView, Switch } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Switch, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Link } from '@react-navigation/native';
-
 import { clearSession } from '@/services/authStorage';
 
 const NotificationsScreen = () => {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  
-  // États pour les notifications
-  const [caloriesNotif, setCaloriesNotif] = useState(true);
-  const [coachNotif, setCoachNotif] = useState(true);
-  const [forumNotif, setForumNotif] = useState(true);
-  
-  // État pour le thème
+
+  const [notifications, setNotifications] = useState({
+    meals: true,
+    coach: true,
+    forum: true,
+  });
   const [darkTheme, setDarkTheme] = useState(true);
-  
+  const [healthSync, setHealthSync] = useState(false);
+
+  const handleLogout = () => {
+    Alert.alert("Log Out", "Are you sure you want to log out?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Log Out", style: "destructive", onPress: async () => {
+          await clearSession();
+          router.replace('/(tabs)/login');
+      }}
+    ]);
+  };
+
+  const toggleNotif = (key: keyof typeof notifications) => {
+    setNotifications(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const SettingRow = ({ icon, title, value, onPress, isLast = false, color = "white", type = "chevron" }: any) => (
+    <View style={[styles.item, isLast && { borderBottomWidth: 0 }]}>
+      <TouchableOpacity 
+        style={styles.itemLeft} 
+        onPress={onPress} 
+        disabled={type !== "chevron" || !onPress}
+      >
+        <Ionicons name={icon} size={22} color={color} style={{ width: 30 }} />
+        <Text style={[styles.itemTitle, { color: color }]}>{title}</Text>
+      </TouchableOpacity>
+      
+      {type === "switch" ? (
+        <Switch 
+            value={value} 
+            onValueChange={onPress} 
+            trackColor={{ false: "#767577", true: "#3498DB" }} 
+            thumbColor="white"
+        />
+      ) : (
+        <TouchableOpacity onPress={onPress} style={{flexDirection: 'row', alignItems: 'center'}}>
+            {value && <Text style={styles.itemValue}>{value}</Text>}
+            <Ionicons name="chevron-forward" size={18} color="#555" />
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        <Text style={styles.mainTitle}>Settings</Text>
 
-      <Text style={styles.sectionTitle}>Notifications</Text>
-      
-      <ScrollView style={styles.contentContainer} showsVerticalScrollIndicator={false}>
-        <View style={styles.notificationItem}>
-          <Text style={styles.notificationText}>Reminder to track calories</Text>
-          <View style={[styles.switchContainer, { backgroundColor: caloriesNotif ? '#81b0ff' : '#767577' }]}>
-            <Switch
-              value={caloriesNotif}
-              onValueChange={setCaloriesNotif}
-              trackColor={{ false: '#767577', true: '#81b0ff' }}
-              thumbColor={caloriesNotif ? '#f5dd4b' : '#f4f3f4'}
-              ios_backgroundColor="#3e3e3e"
-              style={styles.switchStyle}
-            />
-            <Text style={styles.switchStatus}>{caloriesNotif ? 'Activated' : 'Deactivated'}</Text>
-          </View>
+        <Text style={styles.sectionLabel}>PERSONAL DETAILS</Text>
+        <View style={styles.sectionCard}>
+          <SettingRow icon="person-outline" title="Edit Profile Info" onPress={() => {}} />
+          <SettingRow icon=" Medical-outline" title="Health Metrics (BMI, Body Fat)" onPress={() => {}} />
+          <SettingRow icon="lock-closed-outline" title="Change Password" onPress={() => {}} isLast />
         </View>
-        
-        <View style={styles.notificationItem}>
-          <Text style={styles.notificationText}>Notifications from coach</Text>
-          <View style={[styles.switchContainer, { backgroundColor: coachNotif ? '#81b0ff' : '#767577' }]}>
-            <Switch
-              value={coachNotif}
-              onValueChange={setCoachNotif}
-              trackColor={{ false: '#767577', true: '#81b0ff' }}
-              thumbColor={coachNotif ? '#f5dd4b' : '#f4f3f4'}
-              ios_backgroundColor="#3e3e3e"
-              style={styles.switchStyle}
-            />
-            <Text style={styles.switchStatus}>{coachNotif ? 'Activated' : 'Deactivated'}</Text>
-          </View>
+
+        <Text style={styles.sectionLabel}>NOTIFICATIONS</Text>
+        <View style={styles.sectionCard}>
+          <SettingRow 
+            icon="restaurant-outline" 
+            title="Meal Reminders" 
+            type="switch" 
+            value={notifications.meals} 
+            onPress={() => toggleNotif('meals')} 
+          />
+          <SettingRow 
+            icon="chatbubble-outline" 
+            title="Coach Messages" 
+            type="switch" 
+            value={notifications.coach} 
+            onPress={() => toggleNotif('coach')} 
+          />
+          <SettingRow 
+            icon="people-outline" 
+            title="Forum Activity" 
+            type="switch" 
+            value={notifications.forum} 
+            onPress={() => toggleNotif('forum')} 
+            isLast 
+          />
         </View>
-        
-        <View style={styles.notificationItem}>
-          <Text style={styles.notificationText}>Interaction from the forum</Text>
-          <View style={[styles.switchContainer, { backgroundColor: forumNotif ? '#81b0ff' : '#767577' }]}>
-            <Switch
-              value={forumNotif}
-              onValueChange={setForumNotif}
-              trackColor={{ false: '#767577', true: '#81b0ff' }}
-              thumbColor={forumNotif ? '#f5dd4b' : '#f4f3f4'}
-              ios_backgroundColor="#3e3e3e"
-              style={styles.switchStyle}
-            />
-            <Text style={styles.switchStatus}>{forumNotif ? 'Activated' : 'Deactivated'}</Text>
-          </View>
+
+        <Text style={styles.sectionLabel}>PREFERENCES</Text>
+        <View style={styles.sectionCard}>
+          <SettingRow 
+            icon="moon-outline" 
+            title="Dark Theme" 
+            type="switch" 
+            value={darkTheme} 
+            onPress={() => setDarkTheme(!darkTheme)} 
+          />
+          <SettingRow 
+            icon="sync-outline" 
+            title="Sync with Apple Health" 
+            type="switch" 
+            value={healthSync} 
+            onPress={() => setHealthSync(!healthSync)} 
+          />
+          <SettingRow icon="fitness-outline" title="Units" value="kg / kcal" isLast onPress={() => {}} />
         </View>
-        
-        <Text style={styles.sectionTitle}>Themes</Text>
-        
-        <View style={styles.themeContainer}>
-          <TouchableOpacity 
-            style={[
-              styles.themeButton, 
-              { backgroundColor: darkTheme ? '#3498DB' : '#2A4562' }
-            ]}
-            onPress={() => setDarkTheme(!darkTheme)}
-          >
-            <Text style={styles.themeButtonText}>
-              {darkTheme ? 'Dark theme ON' : 'Dark theme OFF'}
-            </Text>
-          </TouchableOpacity>
+
+        <Text style={styles.sectionLabel}>HELP & LEGAL</Text>
+        <View style={styles.sectionCard}>
+          <SettingRow icon="help-circle-outline" title="Help Center" onPress={() => {}} />
+          <SettingRow icon="document-text-outline" title="Privacy Policy" onPress={() => {}} isLast />
         </View>
-        
-        <Text style={styles.sectionTitle}>Other</Text>
-        
-        <TouchableOpacity
-          style={styles.logoutButton}
-          onPress={async () => {
-            await clearSession();
-            router.push('/');
-          }}
-        >
-          <Text style={styles.logoutButtonText}>Log out</Text>
-        </TouchableOpacity>
+
+        <Text style={styles.sectionLabel}>DANGER ZONE</Text>
+        <View style={styles.sectionCard}>
+          <SettingRow 
+            icon="log-out-outline" 
+            title="Log Out" 
+            color="#e74c3c" 
+            onPress={handleLogout} 
+            isLast 
+          />
+        </View>
+
+        <View style={{ height: 40 }} />
       </ScrollView>
     </View>
   );
@@ -106,81 +142,61 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#1A1F2B',
+  },
+  scrollView: {
     paddingHorizontal: 16,
   },
-  contentContainer: {
-    flex: 1,
-    marginBottom: 60,
-  },
-  sectionTitle: {
-    fontSize: 24,
+  mainTitle: {
+    fontSize: 28,
     fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 15,
-    marginTop: 15,
+    color: 'white',
+    marginBottom: 25,
+    marginTop: 10,
   },
-  notificationItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  notificationText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-  },
-  switchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 20,
-    paddingRight: 10,
-  },
-  switchStyle: {
-    transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }],
-  },
-  switchStatus: {
-    color: '#1A1F2B',
-    fontSize: 14,
+  sectionLabel: {
+    color: '#888',
+    fontSize: 12,
     fontWeight: 'bold',
+    marginBottom: 8,
+    marginLeft: 5,
+    letterSpacing: 1,
   },
-  themeContainer: {
-    marginBottom: 15,
-  },
-  themeButton: {
-    borderRadius: 10,
-    padding: 15,
-    alignItems: 'center',
-    width: '40%',
-  },
-  themeButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-  },
-  logoutButton: {
-    backgroundColor: '#FF4757',
-    borderRadius: 25,
-    padding: 15,
-    alignItems: 'center',
-    marginVertical: 15,
-  },
-  logoutButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  tabBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+  sectionCard: {
     backgroundColor: '#2A4562',
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 10,
+    borderRadius: 15,
+    marginBottom: 25,
+    overflow: 'hidden',
   },
-  tabItem: {
+  item: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'space-between', 
+    padding: 16, 
+    borderBottomWidth: 1, 
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  itemLeft: {
+    flexDirection: 'row',
     alignItems: 'center',
-    padding: 10,
+    flex: 1,
+  },
+  itemTitle: {
+    color: 'white',
+    fontSize: 15,
+    marginLeft: 10,
+  },
+  itemValue: {
+    color: '#3498DB',
+    fontSize: 14,
+    fontWeight: '600',
+    marginRight: 8,
+  },
+  version: {
+    textAlign: 'center',
+    color: '#555',
+    fontSize: 11,
+    marginTop: 10,
+    marginBottom: 30,
   },
 });
 

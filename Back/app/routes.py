@@ -7,7 +7,7 @@ from sqlalchemy import select
 from app.model import *
 from app.database import get_session
 from app.api import *
-from app.schemas import WorkoutCreate, WorkoutRead, MealRead
+from app.schemas import WorkoutCreate, WorkoutRead, MealRead, MealCreateByCoach, UserGoalUpdate, MacroUpdate
 from typing import List, Any, Optional
 from jose import JWTError, jwt
 from dotenv import load_dotenv
@@ -30,6 +30,14 @@ async def get_current_user_id(token: str = Depends(oauth2_scheme)):
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid authentication credentials")
 
+
+@router.post("/coaches/clients/{client_id}/workouts/create", status_code=201)
+async def create_workout_for_client_route(
+    client_id: int,
+    workout_data: WorkoutCreate, 
+    session: AsyncSession = Depends(get_session)
+):
+    return await create_full_workout(session, client_id, workout_data)
 
 @router.get("/users/me/dashboard-stats")
 async def get_dashboard_stats(
@@ -181,6 +189,7 @@ async def get_client_dashboard_stats_for_coach(
         "goal_carbs": client.goal_carbs if hasattr(client, 'goal_carbs') else 250,
         "goal_fats": client.goal_fats if hasattr(client, 'goal_fats') else 70,
     }
+
 @router.get("/getAlimentNutriment/{code}/{quantity}")
 async def get_aliment_nutriment(code: str, quantity: int, session: AsyncSession = Depends(get_session)):
     return get_food_by_code(code, quantity)
@@ -240,10 +249,138 @@ async def add_client_via_code(coach_id: int, request: Request, session: AsyncSes
     unique_code = data.get("code")
     return await assign_client_by_code(session, coach_id, unique_code)
 
+@router.put("/coaches/workouts/{workout_id}")
+async def coach_update_workout(
+    workout_id: int, 
+    workout_data: dict, 
+    session: AsyncSession = Depends(get_session),
+    token: str = Depends(oauth2_scheme)
+):
+    return await update_full_workout(session, workout_id, workout_data)
+
+@router.delete("/coaches/meals/{meal_id}", status_code=status.HTTP_200_OK)
+async def delete_meal_by_coach(
+    meal_id: int,
+    session: AsyncSession = Depends(get_session),
+    current_user: Any = Depends(get_current_user_id)
+):
+    result = await session.execute(select(Meal).where(Meal.id == meal_id))
+    meal = result.scalars().first()
+    
+    if not meal:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Meal not found"
+        )
+
+    try:
+        await session.delete(meal)
+        await session.commit()
+
+        return {"message": "Meal successfully deleted"}
+
+    except Exception as e:
+        await session.rollback()
+        print(f"Error deleting meal: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while deleting the meal."
+        )
+
+@router.put("/coaches/meals/{meal_id}", status_code=status.HTTP_200_OK)
+async def update_meal_by_coach(
+    meal_id: int,
+    meal_data: MealCreateByCoach,
+    session: AsyncSession = Depends(get_session),
+    current_user: Any = Depends(get_current_user_id)
+):
+    result = await session.execute(select(Meal).where(Meal.id == meal_id))
+    meal = result.scalars().first()
+    
+    if not meal:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Meal not found"
+        )
+
+    try:
+        meal.name = meal_data.name
+        meal.total_calories = meal_data.total_calories
+        meal.proteins = meal_data.total_proteins
+        meal.carbohydrates = meal_data.total_carbohydrates
+        meal.lipids = meal_data.total_lipids
+        meal.aliments = json.dumps(meal_data.aliments)
+        
+        await session.commit()
+        await session.refresh(meal)
+
+        return {"message": "Meal successfully updated"}
+
+    except Exception as e:
+        await session.rollback()
+        print(f"Error updating meal: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while updating the meal."
+        )
+
+@router.post("/coaches/clients/{client_id}/meals/create", status_code=status.HTTP_201_CREATED)
+async def create_meal_for_client(
+    client_id: int,
+    meal_data: MealCreateByCoach,
+    session: AsyncSession = Depends(get_session),
+    current_user: Any = Depends(get_current_user_id)
+):
+    client_result = await session.execute(select(Users).where(Users.id == client_id))
+    client = client_result.scalars().first()
+    
+    if not client:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client not found"
+        )
+
+    try:
+        new_meal = Meal(
+            user_id=client_id,
+            name=meal_data.name,
+            total_calories=meal_data.total_calories,
+            total_proteins=meal_data.total_proteins,
+            total_carbohydrates=meal_data.total_carbohydrates,
+            total_lipids=meal_data.total_lipids,
+            hourtime=meal_data.date_of_meal,
+            aliments=json.dumps(meal_data.aliments),
+            is_consumed=False
+        )
+
+        session.add(new_meal)
+        await session.commit()
+        await session.refresh(new_meal)
+
+        return {
+            "message": "Meal successfully scheduled for client.",
+            "meal_id": new_meal.id
+        }
+
+    except Exception as e:
+        await session.rollback()
+        print(f"Error creating meal: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while saving the meal to the database."
+        )
+
+@router.delete("/coaches/workouts/{workout_id}")
+async def coach_delete_workout(
+    workout_id: int, 
+    session: AsyncSession = Depends(get_session)
+):
+    return await delete_full_workout(session, workout_id)
+
 @router.get("/coaches/client-details/{client_id}")
 async def get_client_details_full(
     client_id: int, 
-    target_date: Optional[str] = None,  # NOUVEAU : Paramètre de date
+    target_date: Optional[str] = None,
     session: AsyncSession = Depends(get_session)
 ):
     result = await session.execute(select(Users).where(Users.id == client_id))
@@ -262,7 +399,9 @@ async def get_client_details_full(
     meals = result_meals.scalars().all()
 
     result_workouts = await session.execute(
-        select(Workout).where(Workout.user_id == client_id, func.date(Workout.scheduled_date) == query_date)
+        select(Workout)
+        .where(Workout.user_id == client_id, func.date(Workout.scheduled_date) == query_date)
+        .options(selectinload(Workout.exercises))
     )
     workouts = result_workouts.scalars().all()
     
@@ -294,14 +433,23 @@ async def get_client_details_full(
                 "id": m.id,
                 "name": m.name if hasattr(m, 'name') else m.aliment_name,
                 "calories": m.total_calories,
-                "is_consumed": m.is_consumed
+                "is_consumed": m.is_consumed,
+                "aliments": json.loads(m.aliments) if m.aliments else []
             } for m in meals
         ],
         "workouts_today": [
             {
                 "id": w.id,
                 "name": w.name,
-                "is_completed": w.is_completed
+                "is_completed": w.is_completed,
+                "exercises": [
+                    {
+                        "name": exo.name,
+                        "muscle": exo.muscle,
+                        "num_sets": exo.num_sets,
+                        "sets_details": exo.sets_details
+                    } for exo in w.exercises
+                ]
             } for w in workouts
         ]
     }

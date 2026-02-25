@@ -121,12 +121,9 @@ async def create_meal(session: AsyncSession, user_id: int, meal_data: dict):
         total_saturated_fats=meal_data['total_saturated_fats'],
         total_fiber=meal_data['total_fiber'],
         total_salt=meal_data['total_salt'],
-        
         aliments=aliments_json,
-        
         meal_type=meal_data.get('meal_type'),
         hourtime=datetime.fromisoformat(meal_data['hourtime'].replace("Z", "+00:00")),
-        
         is_consumed=meal_data.get('is_consumed', False)
     )
 
@@ -139,13 +136,13 @@ async def create_meal(session: AsyncSession, user_id: int, meal_data: dict):
         session.add(new_meal)
         await session.commit()
         await session.refresh(new_meal)
-        return JSONResponse( #return 201 quand cest bon
+        return JSONResponse(
             status_code=status.HTTP_201_CREATED,
             content={"message": "Meal created successfully!"}
         )
     except IntegrityError as e:
         await session.rollback()
-        print("erreur d'intégrité") #return 500 quand erreur
+        print("erreur d'intégrité")
         raise HTTPException(status_code=500, detail="Integrity error occurred.")
 
 async def delete_meal(session: AsyncSession, meal_id):
@@ -262,7 +259,6 @@ async def get_meals_by_user(session: AsyncSession, user_id: int):
     )
 
 async def get_all_coaches(session: AsyncSession):
-    """Récupère tous les utilisateurs avec le rôle 'coach'."""
     result = await session.execute(
         select(Users).where(Users.role == 'coach')
     )
@@ -276,28 +272,24 @@ async def get_all_coaches(session: AsyncSession):
             "email": coach.email,
             "gender": coach.gender,
             "age": coach.age,
-            "speciality": "General" # Champ fictif si pas en BDD, ou à adapter
+            "speciality": "General"
         }
         for coach in coaches
     ]
 
 async def assign_coach_to_client(session: AsyncSession, client_id: int, coach_id: int):
-    """Assigne un coach à un client."""
-    # Vérifier si le client existe
     client_result = await session.execute(select(Users).where(Users.id == client_id))
     client = client_result.scalars().first()
     
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
         
-    # Vérifier si le coach existe
     coach_result = await session.execute(select(Users).where(Users.id == coach_id))
     coach = coach_result.scalars().first()
     
     if not coach or coach.role != 'coach':
         raise HTTPException(status_code=400, detail="Invalid coach ID")
 
-    # Mise à jour
     client.coach_id = coach_id
     try:
         await session.commit()
@@ -307,7 +299,6 @@ async def assign_coach_to_client(session: AsyncSession, client_id: int, coach_id
         raise HTTPException(status_code=500, detail=str(e))
 
 async def get_clients_by_coach_id(session: AsyncSession, coach_id: int):
-    """Récupère la liste des clients assignés à un coach."""
     result = await session.execute(
         select(Users).where(Users.coach_id == coach_id)
     )
@@ -321,7 +312,7 @@ async def get_clients_by_coach_id(session: AsyncSession, coach_id: int):
             "age": client.age,
             "gender": client.gender,
             "email": client.email,
-            "goal": client.daily_caloric_needs or 2000 # Valeur par défaut si null
+            "goal": client.daily_caloric_needs or 2000
         }
         for client in clients
     ]
@@ -392,7 +383,6 @@ async def assign_client_by_code(session: AsyncSession, coach_id: int, unique_cod
         raise HTTPException(status_code=500, detail=str(e))
 
 async def unassign_client(session: AsyncSession, coach_id: int, client_id: int):
-    
     result = await session.execute(
         select(Users).where(and_(Users.id == client_id, Users.coach_id == coach_id))
     )
@@ -413,55 +403,64 @@ async def unassign_client(session: AsyncSession, coach_id: int, client_id: int):
         await session.rollback()
         raise HTTPException(status_code=500, detail="Database error during unassignment.")
     
-async def get_client_details(session: AsyncSession, client_id: int):
-    today = date.today()
-    
-    user_result = await session.execute(select(Users).where(Users.id == client_id))
-    client = user_result.scalars().first()
-    
-    if not client:
-        raise HTTPException(status_code=404, detail="Client not found")
+async def get_client_details(session: AsyncSession, client_id: int, target_date: str):
+    try:
+        date_obj = date.fromisoformat(target_date)
+        start_of_day = datetime.combine(date_obj, datetime.min.time())
+        end_of_day = datetime.combine(date_obj, datetime.max.time())
 
-    stats_result = await session.execute(
-        select(
-            func.sum(Meal.total_calories),
-            func.sum(Meal.total_proteins),
-            func.sum(Meal.total_carbohydrates),
-            func.sum(Meal.total_lipids)
-        ).where(and_(Meal.user_id == client.id, func.date(Meal.hourtime) == today))
-    )
-    
-    total_cals, total_prot, total_carbs, total_fat = stats_result.one()
+        user_result = await session.execute(select(Users).where(Users.id == client_id))
+        client = user_result.scalars().first()
+        if not client: raise HTTPException(404, "Client not found")
 
-    total_cals = total_cals or 0
-    total_prot = total_prot or 0
-    total_carbs = total_carbs or 0
-    total_fat = total_fat or 0
+        workout_stmt = (
+            select(Workout)
+            .where(and_(Workout.user_id == client_id, Workout.scheduled_date >= start_of_day, Workout.scheduled_date <= end_of_day))
+            .options(selectinload(Workout.exercises))
+        )
+        workout_res = await session.execute(workout_stmt)
+        workouts = workout_res.scalars().all()
 
-    goal_cals = client.daily_caloric_needs or 2000
-    goal_prot = (goal_cals * 0.25) / 4
-    goal_carbs = (goal_cals * 0.50) / 4
-    goal_fat = (goal_cals * 0.25) / 9
+        formatted_workouts = []
+        for w in workouts:
+            formatted_workouts.append({
+                "id": w.id,
+                "name": w.name,
+                "is_completed": w.is_completed,
+                "difficulty": w.difficulty,
+                "exercises": [
+                    {
+                        "name": e.name,
+                        "muscle": e.muscle,
+                        "num_sets": e.num_sets,
+                        "sets_details": e.sets_details 
+                    } for e in w.exercises
+                ]
+            })
 
-    return {
-        "id": client.id,
-        "firstname": client.firstname,
-        "lastname": client.lastname,
-        "age": client.age,
-        "gender": client.gender,
-        "goal_calories": round(goal_cals),
-        "today_stats": {
-            "calories": round(total_cals),
-            "proteins": round(total_prot),
-            "carbs": round(total_carbs),
-            "fats": round(total_fat)
-        },
-        "goals_macros": {
-            "proteins": round(goal_prot),
-            "carbs": round(goal_carbs),
-            "fats": round(goal_fat)
+        meals_result = await session.execute(
+            select(func.sum(Meal.total_calories), func.sum(Meal.total_proteins), func.sum(Meal.total_carbohydrates), func.sum(Meal.total_lipids))
+            .where(and_(Meal.user_id == client_id, Meal.hourtime >= start_of_day, Meal.hourtime <= end_of_day))
+        )
+        m_stats = meals_result.one()
+
+        print("Client:", client.firstname, client.lastname)
+        print("workouts:", formatted_workouts)
+        goal_cals = client.daily_caloric_needs or 2000
+        return {
+            "id": client.id,
+            "firstname": client.firstname,
+            "lastname": client.lastname,
+            "age": client.age,
+            "gender": client.gender,
+            "goal_calories": round(goal_cals),
+            "today_stats": {"calories": round(m_stats[0] or 0), "proteins": round(m_stats[1] or 0), "carbs": round(m_stats[2] or 0), "fats": round(m_stats[3] or 0)},
+            "goals_macros": {"proteins": round((goal_cals*0.25)/4), "carbs": round((goal_cals*0.5)/4), "fats": round((goal_cals*0.25)/9)},
+            "workouts_today": formatted_workouts
         }
-    }
+    except Exception as e:
+        print(f"Error: {e}")
+        raise HTTPException(500, "Internal Server Error")
 
 async def get_coach_home_summary(session: AsyncSession, coach_id: int):
     today = date.today()
@@ -560,7 +559,7 @@ async def unassign_my_coach(session: AsyncSession, user_id: int):
     except Exception as e:
         await session.rollback()
         raise HTTPException(status_code=500, detail=str(e))
-    
+
 async def create_full_workout(session: AsyncSession, user_id: int, workout_data: WorkoutCreate):
     try:
         new_workout = Workout(
@@ -575,14 +574,15 @@ async def create_full_workout(session: AsyncSession, user_id: int, workout_data:
         await session.flush() 
 
         for exo in workout_data.exercises:
+            sets_data = [s.model_dump() for s in exo.sets_details] if exo.sets_details else []
+            
             new_exercise = WorkoutExercise(
                 workout_id=new_workout.id,
                 name=exo.name,
                 muscle=exo.muscle,
                 num_sets=exo.num_sets,
-                reps=exo.reps,
-                weight=exo.weight,
-                rest_time=exo.rest_time
+                rest_time=exo.rest_time,
+                sets_details=sets_data
             )
             session.add(new_exercise)
 
@@ -612,3 +612,47 @@ async def get_user_workouts(session: AsyncSession, user_id: int):
     except Exception as e:
         print(f"Error fetching workouts: {e}")
         raise HTTPException(status_code=500, detail="Could not fetch workouts.")
+    
+async def update_full_workout(session: AsyncSession, workout_id: int, workout_data: dict):
+    result = await session.execute(select(Workout).where(Workout.id == workout_id))
+    workout = result.scalars().first()
+    
+    if not workout:
+        raise HTTPException(status_code=404, detail="Workout not found")
+        
+    workout.name = workout_data.get('name', workout.name)
+    workout.difficulty = workout_data.get('difficulty', workout.difficulty)
+    
+    await session.execute(
+        WorkoutExercise.__table__.delete().where(WorkoutExercise.workout_id == workout_id)
+    )
+    
+    for exo in workout_data.get('exercises', []):
+        new_exercise = WorkoutExercise(
+            workout_id=workout.id,
+            name=exo['name'],
+            muscle=exo['muscle'],
+            num_sets=exo['num_sets'],
+            rest_time=exo.get('rest_time', 60),
+            sets_details=exo['sets_details']
+        )
+        session.add(new_exercise)
+
+    await session.commit()
+    return {"message": "Workout updated successfully"}
+
+async def delete_full_workout(session: AsyncSession, workout_id: int):
+    result = await session.execute(select(Workout).where(Workout.id == workout_id))
+    workout = result.scalars().first()
+    
+    if not workout:
+        raise HTTPException(status_code=404, detail="Workout not found")
+        
+    await session.execute(
+        WorkoutExercise.__table__.delete().where(WorkoutExercise.workout_id == workout_id)
+    )
+    
+    await session.delete(workout)
+    await session.commit()
+    
+    return {"message": "Workout deleted successfully"}

@@ -12,15 +12,21 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { getToken } from '@/services/authStorage';
 import { getUniqueMuscles, getExercisesByMuscle, ExerciseType } from '@/constants/exercisesData';
 
+// Nouvelle interface pour supporter les séries détaillées
+interface SetDetail {
+  set_number: number;
+  reps: number;
+  weight: number;
+  duration: number;
+}
+
 interface LocalExercise {
   id: number;
   name: string;
   muscle: string;
   type: ExerciseType;
-  sets: string;
-  reps: string;
-  weight: string;
-  duration: string;
+  num_sets: number;
+  sets_details: SetDetail[];
 }
 
 const CreateSessionScreen = () => {
@@ -62,30 +68,78 @@ const CreateSessionScreen = () => {
       setListData(getUniqueMuscles());
   };
 
+  // Ajout d'un exercice avec 1 set par défaut
   const handleSelectExercise = (exerciseObj: any) => {
+      const isDuration = exerciseObj.type === 'duration';
+      
       const newExo: LocalExercise = {
           id: Date.now(),
           name: exerciseObj.name,
           muscle: selectedMuscle || 'Global',
           type: exerciseObj.type || 'strength',
-          sets: '4',
-          reps: '10',
-          weight: '0',
-          duration: '60'
+          num_sets: 1,
+          sets_details: [
+            { set_number: 1, reps: isDuration ? 0 : 10, weight: 0, duration: isDuration ? 60 : 0 }
+          ]
       };
       setExercises([...exercises, newExo]);
       setModalVisible(false); 
       setModalStep('muscles');
   };
 
-  const updateExercise = (id: number, field: keyof LocalExercise, value: string) => {
-    setExercises(exercises.map(e => e.id === id ? { ...e, [field]: value } : e));
-  };
-
   const removeExercise = (id: number) => {
     setExercises(exercises.filter(e => e.id !== id));
   };
 
+  // --- LOGIQUE DES SERIES (SETS) ---
+  const updateSet = (exoId: number, setIndex: number, field: keyof SetDetail, value: string) => {
+    setExercises(prevExos => 
+      prevExos.map(exo => {
+        if (exo.id !== exoId) return exo;
+        
+        const newSets = [...exo.sets_details];
+        newSets[setIndex] = { ...newSets[setIndex], [field]: parseFloat(value) || 0 };
+        
+        return { ...exo, sets_details: newSets };
+      })
+    );
+  };
+
+  const addSetToExercise = (exoId: number) => {
+    setExercises(prevExos => 
+      prevExos.map(exo => {
+        if (exo.id !== exoId) return exo;
+
+        const newSets = [...exo.sets_details];
+        const lastSet = newSets.length > 0 ? newSets[newSets.length - 1] : { reps: 10, weight: 0, duration: 0 };
+        
+        newSets.push({ 
+          ...lastSet, 
+          set_number: newSets.length + 1 
+        });
+
+        return { ...exo, num_sets: newSets.length, sets_details: newSets };
+      })
+    );
+  };
+
+  const removeSetFromExercise = (exoId: number, setIndex: number) => {
+    setExercises(prevExos => 
+      prevExos.map(exo => {
+        if (exo.id !== exoId) return exo;
+
+        const newSets = [...exo.sets_details];
+        newSets.splice(setIndex, 1);
+        
+        // Renumérotation
+        newSets.forEach((s, idx) => s.set_number = idx + 1);
+
+        return { ...exo, num_sets: newSets.length, sets_details: newSets };
+      })
+    );
+  };
+
+  // --- SAUVEGARDE ---
   const handleSaveSession = async () => {
       if (!sessionName.trim() || exercises.length === 0) {
           Alert.alert("Missing Info", "Name and Exercises required.");
@@ -102,11 +156,9 @@ const CreateSessionScreen = () => {
               exercises: exercises.map(e => ({
                   name: e.name,
                   muscle: e.muscle,
-                  num_sets: parseInt(e.sets) || 0,
-                  reps: e.type === 'strength' ? (parseInt(e.reps) || 0) : 0,
-                  weight: e.type === 'strength' ? (parseFloat(e.weight) || 0) : 0,
-                  duration: e.type === 'duration' ? (parseInt(e.duration) || 0) : 0,
-                  rest_time: 60
+                  num_sets: e.num_sets,
+                  rest_time: 60,
+                  sets_details: e.sets_details
               }))
           };
 
@@ -133,7 +185,7 @@ const CreateSessionScreen = () => {
       </View>
 
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{flex: 1}}>
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
             <View style={styles.section}>
                 <Text style={styles.label}>Name</Text>
                 <TextInput style={styles.input} placeholder="e.g. Full Body..." placeholderTextColor="#666" value={sessionName} onChangeText={setSessionName} />
@@ -159,49 +211,76 @@ const CreateSessionScreen = () => {
                         <View style={styles.cardHeader}>
                             <Text style={styles.exoName}>{i+1}. {exo.name}</Text>
                             <TouchableOpacity onPress={() => removeExercise(exo.id)}>
-                                <Ionicons name="trash-outline" size={20} color="#e74c3c" />
+                                <Ionicons name="trash-outline" size={22} color="#e74c3c" />
                             </TouchableOpacity>
                         </View>
                         
                         <Text style={styles.muscleTag}>{exo.muscle.toUpperCase()} • {exo.type === 'duration' ? '⏱ DURATION' : '💪 STRENGTH'}</Text>
 
-                        <View style={styles.statsRow}>
-                            <View style={styles.statInputContainer}>
-                                <Text style={styles.statLabel}>Sets</Text>
-                                <TextInput style={styles.statInput} keyboardType="numeric" value={exo.sets} onChangeText={t => updateExercise(exo.id, 'sets', t)} />
-                            </View>
-
-                            {exo.type === 'strength' ? (
-                                <>
-                                    <View style={styles.statInputContainer}>
-                                        <Text style={styles.statLabel}>Reps</Text>
-                                        <TextInput style={styles.statInput} keyboardType="numeric" value={exo.reps} onChangeText={t => updateExercise(exo.id, 'reps', t)} />
-                                    </View>
-                                    <View style={styles.statInputContainer}>
-                                        <Text style={styles.statLabel}>Kg</Text>
-                                        <TextInput style={styles.statInput} keyboardType="numeric" value={exo.weight} onChangeText={t => updateExercise(exo.id, 'weight', t)} />
-                                    </View>
-                                </>
-                            ) : (
-                                <View style={[styles.statInputContainer, {flex: 2}]}> 
-                                    <Text style={styles.statLabel}>Duration (Seconds)</Text>
-                                    <TextInput style={styles.statInput} keyboardType="numeric" value={exo.duration} onChangeText={t => updateExercise(exo.id, 'duration', t)} placeholder="60"/>
-                                </View>
+                        {/* ENTÊTES DES COLONNES */}
+                        <View style={{flexDirection: 'row', paddingHorizontal: 5, marginBottom: 5}}>
+                            <Text style={{color: '#888', fontSize: 12, width: 35, fontWeight: 'bold'}}>Set</Text>
+                            <Text style={{color: '#888', fontSize: 12, flex: 1, textAlign: 'center', fontWeight: 'bold'}}>
+                                {exo.type === 'strength' ? 'Reps' : 'Time (s)'}
+                            </Text>
+                            {exo.type === 'strength' && (
+                                <Text style={{color: '#888', fontSize: 12, flex: 1, textAlign: 'center', fontWeight: 'bold'}}>Weight (kg)</Text>
                             )}
+                            <View style={{width: 30}} />
                         </View>
+
+                        {/* LISTE DES SÉRIES (SETS) */}
+                        {exo.sets_details.map((set, setIndex) => (
+                            <View key={setIndex} style={styles.setRow}>
+                                <Text style={{color: '#3498DB', fontWeight: 'bold', width: 35}}>S{set.set_number}</Text>
+                                
+                                <View style={{flex: 1, paddingHorizontal: 5}}>
+                                    <TextInput 
+                                        style={styles.setInput} 
+                                        keyboardType="numeric" 
+                                        value={String(exo.type === 'strength' ? set.reps : set.duration || '')} 
+                                        onChangeText={t => updateSet(exo.id, setIndex, exo.type === 'strength' ? 'reps' : 'duration', t)} 
+                                        placeholderTextColor="#888" 
+                                    />
+                                </View>
+                                
+                                {exo.type === 'strength' && (
+                                    <View style={{flex: 1, paddingHorizontal: 5}}>
+                                        <TextInput 
+                                            style={styles.setInput} 
+                                            keyboardType="numeric" 
+                                            value={String(set.weight || '')} 
+                                            onChangeText={t => updateSet(exo.id, setIndex, 'weight', t)} 
+                                            placeholderTextColor="#888" 
+                                            placeholder="0"
+                                        />
+                                    </View>
+                                )}
+                                
+                                <TouchableOpacity onPress={() => removeSetFromExercise(exo.id, setIndex)} style={{width: 30, alignItems: 'flex-end'}}>
+                                    <Ionicons name="close-circle" size={22} color="#e74c3c" />
+                                </TouchableOpacity>
+                            </View>
+                        ))}
+
+                        <TouchableOpacity style={styles.addSetBtn} onPress={() => addSetToExercise(exo.id)}>
+                            <Text style={{color: '#3498DB', fontWeight: 'bold'}}>+ Add Set</Text>
+                        </TouchableOpacity>
+
                     </View>
                 ))}
             </View>
-            <View style={{height: 80}} />
+            <View style={{height: 100}} />
         </ScrollView>
       </KeyboardAvoidingView>
 
       <View style={[styles.footer, {paddingBottom: insets.bottom + 10}]}>
           <TouchableOpacity style={styles.saveBtn} onPress={handleSaveSession} disabled={loadingSave}>
-              {loadingSave ? <ActivityIndicator color="white"/> : <Text style={styles.saveBtnText}>Save Workout</Text>}
+              {loadingSave ? <ActivityIndicator color="white"/> : <Text style={styles.saveBtnText}>Save Session</Text>}
           </TouchableOpacity>
       </View>
 
+      {/* --- MODALE SELECTEUR MUSCLES/EXERCICES --- */}
       <Modal visible={modalVisible} animationType="slide" presentationStyle="pageSheet">
           <View style={styles.modalContainer}>
               
@@ -258,23 +337,27 @@ const styles = StyleSheet.create({
   scrollContent: { padding: 20 },
   section: { marginBottom: 25 },
   label: { color: '#aaa', marginBottom: 8, fontSize: 14, fontWeight: '600' },
-  input: { backgroundColor: '#2A4562', color: 'white', padding: 12, borderRadius: 8, marginBottom: 15, fontSize: 16 },
-  dateBtn: { flexDirection: 'row', backgroundColor: '#2A4562', padding: 12, borderRadius: 8, alignItems: 'center' },
+  input: { backgroundColor: '#2A4562', color: 'white', padding: 15, borderRadius: 10, marginBottom: 15, fontSize: 16 },
+  dateBtn: { flexDirection: 'row', backgroundColor: '#2A4562', padding: 15, borderRadius: 10, alignItems: 'center' },
   dateText: { color: 'white', marginLeft: 10, fontSize: 16 },
   sectionTitle: { color: 'white', fontSize: 18, fontWeight: 'bold' },
-  addBtnSmall: { flexDirection: 'row', backgroundColor: '#3498DB', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, alignItems: 'center' },
+  addBtnSmall: { flexDirection: 'row', backgroundColor: '#3498DB', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, alignItems: 'center' },
   addBtnText: { color: 'white', fontWeight: 'bold', fontSize: 14 },
-  card: { backgroundColor: '#232D3F', padding: 15, borderRadius: 10, marginBottom: 15, borderLeftWidth: 3, borderLeftColor: '#3498DB' },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 },
+  
+  // Styles de la carte de l'exercice
+  card: { backgroundColor: '#1E2C3D', padding: 15, borderRadius: 12, marginBottom: 15, borderLeftWidth: 3, borderLeftColor: '#3498DB' },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5, alignItems: 'center' },
   exoName: { color: 'white', fontSize: 16, fontWeight: 'bold', width: '85%' },
-  muscleTag: { color: '#3498DB', fontSize: 10, marginBottom: 10, fontWeight: 'bold' },
-  statsRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 10 },
-  statInputContainer: { flex: 1 },
-  statLabel: { color: '#666', fontSize: 10, textAlign: 'center', marginBottom: 4 },
-  statInput: { backgroundColor: '#1A1F2B', color: 'white', textAlign: 'center', padding: 8, borderRadius: 5, borderWidth: 1, borderColor: '#3A5572', fontWeight: 'bold' },
+  muscleTag: { color: '#3498DB', fontSize: 10, marginBottom: 15, fontWeight: 'bold' },
+  
+  // Styles des séries (Sets)
+  setRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A1F2B', paddingHorizontal: 5, paddingVertical: 8, borderRadius: 8, marginBottom: 8 },
+  setInput: { backgroundColor: '#2A4562', color: 'white', paddingVertical: 10, borderRadius: 6, width: '100%', textAlign: 'center', fontSize: 15 },
+  addSetBtn: { alignSelf: 'center', paddingVertical: 10, marginTop: 5 },
+
   footer: { position: 'absolute', bottom: 0, width: '100%', backgroundColor: '#1A1F2B', padding: 15, borderTopWidth: 1, borderColor: '#2A4562' },
-  saveBtn: { backgroundColor: '#2ecc71', padding: 15, borderRadius: 10, alignItems: 'center' },
-  saveBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+  saveBtn: { backgroundColor: '#2ecc71', padding: 18, borderRadius: 12, alignItems: 'center' },
+  saveBtnText: { color: 'white', fontWeight: 'bold', fontSize: 18 },
   
   modalContainer: { flex: 1, backgroundColor: '#1A1F2B' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, borderColor: '#2A4562', alignItems: 'center' },

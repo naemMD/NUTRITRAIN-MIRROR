@@ -1,8 +1,8 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
 import { 
   StyleSheet, Text, View, TouchableOpacity, TouchableWithoutFeedback, 
   ScrollView, Image, TextInput, Modal, Keyboard, 
-  ActivityIndicator, StatusBar, Alert, Platform, Dimensions 
+  ActivityIndicator, StatusBar, Alert, Platform, Dimensions, KeyboardAvoidingView
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -58,6 +58,7 @@ const HomeScreen = () => {
   const [selectedFoods, setSelectedFoods] = useState<any[]>([]);
   const [editingId, setEditingId] = useState(null);
   const [loadingSearch, setLoadingSearch] = useState(false);
+  const [savingMeal, setSavingMeal] = useState(false); // État pour le chargement lors de la sauvegarde
 
   // --- STATE CAMERA ---
   const [permission, requestPermission] = useCameraPermissions();
@@ -150,7 +151,45 @@ const HomeScreen = () => {
     }
   };
 
-  // --- 3. ACTIONS CREATION REPAS ---
+  // --- 3. ACTIONS CREATION REPAS & LOGIQUE DYNAMIQUE ---
+
+  // Recalcul dynamique des macros totales du repas
+  const totalMealMacros = useMemo(() => {
+    return selectedFoods.reduce((acc, item) => {
+      const weight = parseFloat(item.weight) || 0;
+      const ratio = weight / 100;
+
+      // Fonction utilitaire pour récupérer une macro de base (per 100g) de manière sécurisée
+      const getBaseMacro = (key: string, fallbackKey?: string) => {
+          if (item.baseMacros && item.baseMacros[key] !== undefined) return parseFloat(item.baseMacros[key]);
+          // Fallback pour les anciens repas stockés sans baseMacros : on tente de rétro-calculer
+          const currentMacroVal = parseFloat(item.macros?.[key] || (fallbackKey ? item.macros?.[fallbackKey] : 0) || 0);
+          const currentWeightRatio = (parseFloat(item.weight) || 100) / 100;
+          return currentWeightRatio > 0 ? currentMacroVal / currentWeightRatio : 0;
+      };
+
+      return {
+        calories: acc.calories + (getBaseMacro('energy') * ratio),
+        proteins: acc.proteins + (getBaseMacro('proteins') * ratio),
+        carbs: acc.carbs + (getBaseMacro('carbohydrates') * ratio),
+        fats: acc.lipids + (getBaseMacro('lipids') * ratio),
+        // On garde les autres totaux pour la sauvegarde en BDD
+        sugars: acc.sugars + (getBaseMacro('sugars') * ratio),
+        saturated_fats: acc.saturated_fats + (getBaseMacro('saturated_fats') * ratio),
+        fibers: acc.fibers + (getBaseMacro('fibers') * ratio),
+        salt: acc.salt + (getBaseMacro('salt') * ratio),
+      };
+    }, { calories: 0, proteins: 0, carbs: 0, fats: 0, sugars: 0, saturated_fats: 0, fibers: 0, salt: 0 });
+  }, [selectedFoods]);
+
+  // Mise à jour du poids d'un aliment dans la liste
+  const updateFoodWeight = (index: number, newWeightStr: string) => {
+      const updatedFoods = [...selectedFoods];
+      // On garde la valeur en string pour l'input, mais on s'assure qu'elle est numérique pour les calculs
+      updatedFoods[index] = { ...updatedFoods[index], weight: newWeightStr };
+      setSelectedFoods(updatedFoods);
+  };
+
   const searchFood = async () => {
     if (!searchWeight || isNaN(parseFloat(searchWeight)) || parseFloat(searchWeight) <= 0) {
       Alert.alert("Weight Missing", "Please enter a weight (grams) BEFORE searching.");
@@ -182,29 +221,38 @@ const HomeScreen = () => {
     try {
       const response = await axios.get(`${API_URL}/getAlimentNutriment/${item.code}/${searchWeight}`);
       const foodDetails = response.data;
+      const weightNum = parseFloat(searchWeight);
+      const ratio = weightNum / 100;
+
+      // On stocke les macros de base pour 100g pour permettre le recalcul dynamique
+      const baseMacros = {
+          energy: parseFloat(foodDetails.energy) / ratio || 0,
+          proteins: parseFloat(foodDetails.proteins) / ratio || 0,
+          carbohydrates: parseFloat(foodDetails.carbohydrates) / ratio || 0,
+          sugars: parseFloat(foodDetails.sugars) / ratio || 0,
+          lipids: parseFloat(foodDetails.lipids) / ratio || 0,
+          saturated_fats: parseFloat(foodDetails.saturated_fats) / ratio || 0,
+          fibers: parseFloat(foodDetails.fiber) / ratio || 0,
+          salt: parseFloat(foodDetails.salt) / ratio || 0,
+      };
 
       const newItem = {
+        id: Date.now() + Math.random(), // ID unique pour la clé React
         name: item.name, 
         image: item.image, 
-        weight: searchWeight, 
+        weight: searchWeight, // Stocké en string pour le TextInput
         code: item.code,
+        baseMacros: baseMacros,
+        // On garde 'macros' pour la compatibilité ascendante si besoin, calculé sur le poids initial
         macros: {
-          energy: foodDetails.energy, 
-          proteins: foodDetails.proteins,
-          carbohydrates: foodDetails.carbohydrates, 
-          sugars: foodDetails.sugars,
-          lipids: foodDetails.lipids, 
-          saturated_fats: foodDetails.saturated_fats,
-          fibers: foodDetails.fiber, 
-          salt: foodDetails.salt,
+          energy: foodDetails.energy, proteins: foodDetails.proteins, carbohydrates: foodDetails.carbohydrates, 
+          sugars: foodDetails.sugars, lipids: foodDetails.lipids, saturated_fats: foodDetails.saturated_fats,
+          fibers: foodDetails.fiber, salt: foodDetails.salt,
         }
       };
 
       setSelectedFoods(prev => [...prev, newItem]);
-      
-      setResults([]); 
-      setSearch(''); 
-      setSearchWeight('');
+      setResults([]); setSearch(''); setSearchWeight('');
 
     } catch (error) {
       Alert.alert("Error", "Could not fetch food details.");
@@ -221,22 +269,54 @@ const HomeScreen = () => {
       Alert.alert("Missing Info", "Please add a name and at least one food.");
       return;
     }
+    setSavingMeal(true);
 
-    const sumMacro = (key: string) => selectedFoods.reduce((sum, item) => sum + (parseFloat(item.macros?.[key]) || 0), 0);
+    // Préparation de la liste finale des aliments avec leurs macros calculées selon le poids final
+    const finalAliments = selectedFoods.map(item => {
+        const weightNum = parseFloat(item.weight) || 0;
+        const ratio = weightNum / 100;
+        
+        // Utilitaire pour calculer la macro finale
+        const calcMacro = (key: string, fallbackKey?: string) => {
+             let base = item.baseMacros?.[key];
+             if (base === undefined) {
+                 // Fallback rétro-calcul
+                 const originalWeightRatio = (parseFloat(item.weight) || 100) / 100;
+                 base = (parseFloat(item.macros?.[key] || item.macros?.[fallbackKey] || 0) / originalWeightRatio) || 0;
+             }
+             return (base * ratio).toFixed(1);
+        };
+
+        return {
+            ...item,
+            weight: weightNum,
+            macros: {
+                energy: calcMacro('energy'),
+                proteins: calcMacro('proteins'),
+                carbohydrates: calcMacro('carbohydrates'),
+                sugars: calcMacro('sugars'),
+                lipids: calcMacro('lipids'),
+                saturated_fats: calcMacro('saturated_fats'),
+                fibers: calcMacro('fibers', 'fiber'),
+                salt: calcMacro('salt')
+            }
+        };
+    });
 
     const mealData = {
       name: mealName,
       hourtime: getLocalISOString(date),
-      total_calories: sumMacro('energy'),
-      total_proteins: sumMacro('proteins'),
-      total_carbohydrates: sumMacro('carbohydrates'),
-      total_sugars: sumMacro('sugars'),
-      total_lipids: sumMacro('lipids'),
-      total_saturated_fats: sumMacro('saturated_fats'),
-      total_fiber: sumMacro('fibers'),
-      total_salt: sumMacro('salt'),
-      aliments: selectedFoods,
-      is_consumed: false
+      // Utilisation des totaux dynamiques calculés par useMemo
+      total_calories: totalMealMacros.calories,
+      total_proteins: totalMealMacros.proteins,
+      total_carbohydrates: totalMealMacros.carbs,
+      total_sugars: totalMealMacros.sugars,
+      total_lipids: totalMealMacros.fats,
+      total_saturated_fats: totalMealMacros.saturated_fats,
+      total_fiber: totalMealMacros.fibers,
+      total_salt: totalMealMacros.salt,
+      aliments: finalAliments,
+      is_consumed: editingId ? undefined : false // On ne reset pas is_consumed si on édite
     };
 
     try {
@@ -249,6 +329,9 @@ const HomeScreen = () => {
       handleCloseModal();
     } catch (error) {
       console.log("Error saving meal:", error);
+      Alert.alert("Error", "Could not save meal.");
+    } finally {
+        setSavingMeal(false);
     }
   };
 
@@ -256,7 +339,16 @@ const HomeScreen = () => {
     resetForm();
     setMealName(meal.name);
     setDate(new Date(meal.hourtime)); 
-    const foods = typeof meal.aliments === 'string' ? JSON.parse(meal.aliments) : meal.aliments;
+    
+    let foods = typeof meal.aliments === 'string' ? JSON.parse(meal.aliments) : meal.aliments;
+    // S'assurer que les aliments chargés ont des IDs uniques et un poids en string pour l'UI
+    foods = foods.map((f: any) => ({
+        ...f,
+        id: f.id || Date.now() + Math.random(),
+        weight: String(f.weight || 100), // Convertir en string pour le TextInput
+        // Note: si baseMacros n'existe pas, les calculs utiliseront le fallback
+    }));
+
     setSelectedFoods(foods);
     setEditingId(meal.id);
     setIsModalVisible(true);
@@ -270,13 +362,18 @@ const HomeScreen = () => {
 
   const handleDeleteMeal = async () => {
     if (!editingId) return;
-    try {
-        await axios.delete(`${API_URL}/deleteMeal/${editingId}`);
-        await loadData();
-        handleCloseModal();
-    } catch (error) {
-        console.log("Error delete:", error);
-    }
+    Alert.alert("Delete Meal", "Are you sure?", [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete", style: "destructive", onPress: async () => {
+            try {
+                await axios.delete(`${API_URL}/deleteMeal/${editingId}`);
+                await loadData();
+                handleCloseModal();
+            } catch (error) {
+                console.log("Error delete:", error);
+            }
+        }}
+    ]);
   };
 
   // --- LOGIQUE CAMERA ---
@@ -337,9 +434,24 @@ const HomeScreen = () => {
         return;
     }
     const ratio = g / 100;
+
+    // Création des baseMacros pour le recalcul dynamique
+    const baseMacros = {
+        energy: parseFloat(nutriments.energy) || 0,
+        proteins: parseFloat(nutriments.proteins) || 0,
+        carbohydrates: parseFloat(nutriments.carbohydrates) || 0,
+        sugars: parseFloat(nutriments.sugars) || 0,
+        lipids: parseFloat(nutriments.lipids) || 0,
+        saturated_fats: parseFloat(nutriments.saturated_fats) || 0,
+        fibers: parseFloat(nutriments.fibers) || 0,
+        salt: parseFloat(nutriments.salt) || 0,
+    };
+
     const newItem = { 
+        id: Date.now() + Math.random(),
         ...selectedFood, 
-        weight: g, 
+        weight: String(g), // En string pour l'UI
+        baseMacros: baseMacros,
         macros: {
             energy: (nutriments.energy * ratio).toFixed(1),
             proteins: (nutriments.proteins * ratio).toFixed(1),
@@ -359,7 +471,7 @@ const HomeScreen = () => {
   // --- UTILS ---
   const resetForm = () => {
     setMealName(''); setSearch(''); setSearchWeight(''); setSelectedFoods([]); setResults([]);
-    setDate(new Date()); setShowPicker(false); setLoadingSearch(false); setEditingId(null);
+    setDate(new Date()); setShowPicker(false); setLoadingSearch(false); setEditingId(null); setSavingMeal(false);
   };
   const handleCloseModal = () => { resetForm(); setIsModalVisible(false); };
   const getLocalISOString = (date: Date) => {
@@ -436,115 +548,145 @@ const HomeScreen = () => {
       </TouchableOpacity>
 
 
-      {/* --- MODAL 1: CREATE/EDIT MEAL --- */}
+      {/* --- NOUVELLE MODALE : CREATE/EDIT MEAL (DESIGN ADVANCED) --- */}
       <Modal visible={isModalVisible} animationType="slide" transparent onRequestClose={handleCloseModal}>
-        <View style={styles.modalBackground}>
-          {/* CORRECTION FLEX : On donne une taille max, mais on laisse le contenu interne gérer */}
-          <View style={styles.modalContainer}>
-            
-            {/* Header Inputs */}
-            <View>
-                <View style={styles.rowContainer}>
-                <View style={styles.timeContainer}>
-                    <Text style={styles.label}>Time</Text>
-                    <TouchableOpacity onPress={() => setShowPicker(!showPicker)} style={styles.timeButton}>
-                    <Text style={styles.timeText}>{formatTime(date)}</Text>
-                    </TouchableOpacity>
-                </View>
-                <View style={styles.nameContainer}>
-                    <Text style={styles.label}>Meal Name</Text>
-                    <TextInput style={styles.textInput} placeholder="e.g. Lunch" placeholderTextColor="#888" value={mealName} onChangeText={setMealName} />
-                </View>
-                </View>
-                {showPicker && <DateTimePicker value={date} mode="time" display="spinner" onChange={(e,d) => {setShowPicker(Platform.OS==='ios'); if(d) setDate(d);}} themeVariant="dark" />}
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={Keyboard.dismiss}>
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ width: '100%', alignItems:'center' }}>
+            <TouchableWithoutFeedback>
+            <View style={styles.mealModalContent}>
+                <Text style={styles.modalTitle}>{editingId ? "Edit Meal" : "Create Meal"}</Text>
                 
-                <Text style={[styles.label, {marginTop:15}]}>Add Food (Enter Weight first!)</Text>
-                <View style={styles.searchRow}>
-                <TextInput 
-                    style={[styles.searchInput, {width: 80, textAlign:'center', backgroundColor: '#1A1F2B', borderColor: '#3498DB', borderWidth: 1}]} 
-                    placeholder="g" 
-                    keyboardType="numeric"  
-                    value={searchWeight} 
-                    onChangeText={setSearchWeight} 
-                    placeholderTextColor="#888"
-                />
-                <TextInput 
-                    style={[styles.searchInput, {flex: 1, marginLeft: 10}]} 
-                    placeholder="Type food name..." 
-                    value={search} 
-                    onChangeText={setSearch} 
-                    placeholderTextColor="#888"
-                />
-                <TouchableOpacity style={styles.searchButton} onPress={searchFood}>
-                    {loadingSearch ? <ActivityIndicator size="small" color="white"/> : <Ionicons name="search" size={20} color="white" />}
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.searchButton} onPress={openCameraModal}>
-                    <Ionicons name="camera" size={20} color="white" />
-                </TouchableOpacity>
-                </View>
-            </View>
-
-            {/* Resultats Recherche */}
-            {results.length > 0 && (
-                <View style={{height: 150, marginTop: 10, backgroundColor:'#1F2937', borderRadius:8}}>
-                    <ScrollView nestedScrollEnabled>
-                        {results.map((item, i) => (
-                            <TouchableOpacity key={i} style={styles.resultItem} onPress={() => handleSelectFood(item)}>
-                                <FoodImage uri={item.image} style={styles.resultImage}/>
-                                <Text style={styles.resultText}>{item.name}</Text>
-                                <Ionicons name="add-circle" size={24} color="#3498DB" style={{marginLeft:'auto'}}/>
-                            </TouchableOpacity>
-                        ))}
-                    </ScrollView>
-                </View>
-            )}
-
-            {/* --- CORRECTION CRITIQUE : Zone Liste avec Hauteur FIXE --- */}
-            {/* On abandonne flex:1 instable pour une hauteur explicite qui garantit la visibilité */}
-            <View style={styles.fixedListContainer}>
-                <Text style={[styles.label, {marginBottom: 5}]}>Selected Items ({selectedFoods.length})</Text>
-                
-                {selectedFoods.length === 0 ? (
-                    <View style={styles.emptyListPlaceholder}>
-                        <Text style={{color:'#666'}}>No food selected.</Text>
-                        <Text style={{color:'#444', fontSize:10}}>Add food via search or camera</Text>
+                {/* Header Inputs: Time & Name */}
+                <View style={{flexDirection: 'row', gap: 10, marginBottom: 15}}>
+                    <View style={{flex: 1}}>
+                         <Text style={styles.inputLabelModal}>Time</Text>
+                         <TouchableOpacity onPress={() => setShowPicker(!showPicker)} style={styles.timeButtonNew}>
+                             <Text style={styles.timeTextNew}>{formatTime(date)}</Text>
+                             <Ionicons name="time-outline" size={18} color="#2ecc71" />
+                         </TouchableOpacity>
                     </View>
-                ) : (
-                    <ScrollView nestedScrollEnabled style={{width: '100%'}}>
-                        {selectedFoods.map((item, index) => (
-                            <View key={index} style={styles.selectedFoodRow}>
-                                <FoodImage uri={item.image} style={styles.selectedFoodImage} iconSize={18} />
-                                <View style={styles.selectedFoodInfo}>
-                                    <Text style={styles.selectedFoodName} numberOfLines={1}>{item.name}</Text>
-                                    <Text style={styles.selectedFoodStats}>
-                                        {item.weight}g • {Math.round(item.macros?.energy)} kcal
-                                    </Text>
-                                </View>
-                                <TouchableOpacity onPress={() => removeSelectedFood(index)} style={{padding:8}}>
-                                    <Ionicons name="trash-outline" size={22} color="#e74c3c" />
-                                </TouchableOpacity>
-                            </View>
-                        ))}
-                    </ScrollView>
-                )}
-            </View>
+                    <View style={{flex: 2}}>
+                        <Text style={styles.inputLabelModal}>Meal Name</Text>
+                        <TextInput style={styles.inputModal} placeholder="e.g. Lunch" placeholderTextColor="#888" value={mealName} onChangeText={setMealName} />
+                    </View>
+                </View>
+                 {showPicker && <DateTimePicker value={date} mode="time" display="spinner" onChange={(e,d) => {setShowPicker(Platform.OS==='ios'); if(d) setDate(d);}} themeVariant="dark" />}
 
-            {/* Footer Buttons */}
-            <View style={{marginTop: 'auto', paddingTop: 10}}>
-                <TouchableOpacity style={styles.createButton} onPress={handleCreateMeal}>
-                    <Text style={{color:'white', fontWeight:'bold'}}>{editingId ? "Update Meal" : "Create Meal"}</Text>
-                </TouchableOpacity>
-                {editingId && (
-                     <TouchableOpacity style={[styles.createButton, {backgroundColor: '#c0392b', marginTop: 10}]} onPress={handleDeleteMeal}>
-                        <Text style={{color:'white'}}>Delete Meal</Text>
+
+                {/* Search Row */}
+                <Text style={styles.inputLabelModal}>Add Food (Enter Weight first!)</Text>
+                <View style={styles.searchRowNew}>
+                    <TextInput 
+                        style={[styles.inputModal, {width: 80, textAlign:'center', marginBottom: 0}]} 
+                        placeholder="g" 
+                        keyboardType="numeric"  
+                        value={searchWeight} 
+                        onChangeText={setSearchWeight} 
+                        placeholderTextColor="#888"
+                    />
+                    <TextInput 
+                        style={[styles.inputModal, {flex: 1, marginLeft: 10, marginBottom: 0}]} 
+                        placeholder="Search food..." 
+                        placeholderTextColor="#888" 
+                        value={search} 
+                        onChangeText={setSearch} 
+                        onSubmitEditing={searchFood}
+                    />
+                    <TouchableOpacity style={styles.searchBtnNew} onPress={searchFood}>
+                        {loadingSearch ? <ActivityIndicator size="small" color="white"/> : <Ionicons name="search" size={20} color="white" />}
                     </TouchableOpacity>
+                    <TouchableOpacity style={styles.scanBtnNew} onPress={openCameraModal}>
+                        <Ionicons name="barcode-outline" size={20} color="white" />
+                    </TouchableOpacity>
+                </View>
+                
+                {/* Results Box */}
+                {results.length > 0 && (
+                    <View style={styles.resultsBoxNew}>
+                        <ScrollView nestedScrollEnabled keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
+                            {results.map((item, i) => (
+                                <TouchableOpacity key={i} style={styles.resultItemNew} onPress={() => handleSelectFood(item)}>
+                                    <FoodImage uri={item.image} style={styles.resultImageNew} iconSize={18}/>
+                                    <Text style={styles.resultTextNew} numberOfLines={1}>{item.name}</Text>
+                                    <Ionicons name="add-circle" size={24} color="#2ecc71" />
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+                    </View>
                 )}
-                <TouchableOpacity style={styles.closeButton} onPress={handleCloseModal}>
-                    <Text style={{color:'white'}}>Close</Text>
-                </TouchableOpacity>
+
+                {/* Selected Foods List with Inline Editing */}
+                <View style={styles.fixedListContainerNew}>
+                    <Text style={[styles.inputLabelModal, {marginBottom: 5}]}>Selected Items ({selectedFoods.length})</Text>
+                    {selectedFoods.length === 0 ? (
+                        <View style={styles.emptyListPlaceholderNew}>
+                            <Text style={{color:'#666'}}>No food selected.</Text>
+                            <Text style={{color:'#444', fontSize:10}}>Add food via search or scan</Text>
+                        </View>
+                    ) : (
+                        <ScrollView nestedScrollEnabled style={{width: '100%'}} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
+                            {selectedFoods.map((item, index) => {
+                                 // Calcul dynamique des kcal pour l'affichage sur la ligne
+                                 const weightNum = parseFloat(item.weight) || 0;
+                                 const ratio = weightNum / 100;
+                                 let baseEnergy = item.baseMacros?.energy;
+                                 if (baseEnergy === undefined) {
+                                     // Fallback si pas de baseMacros
+                                     const originalWeightRatio = (parseFloat(item.weight) || 100) / 100;
+                                     baseEnergy = (parseFloat(item.macros?.energy || 0) / originalWeightRatio) || 0;
+                                 }
+                                 const dynamicKcal = Math.round(baseEnergy * ratio);
+
+                                return (
+                                <View key={item.id || index} style={styles.selectedFoodRowNew}>
+                                    <FoodImage uri={item.image} style={styles.selectedFoodImageNew} iconSize={18} />
+                                    <View style={styles.selectedFoodInfoNew}>
+                                        <Text style={styles.selectedFoodNameNew} numberOfLines={1}>{item.name}</Text>
+                                        <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 4}}>
+                                            {/* Inline Weight Input */}
+                                            <TextInput 
+                                                style={styles.amountInputNew} 
+                                                keyboardType="numeric" 
+                                                value={String(item.weight)} 
+                                                onChangeText={(val) => updateFoodWeight(index, val)} 
+                                            />
+                                            <Text style={{color: '#aaa', fontSize: 12, marginLeft: 5}}>
+                                                g • <Text style={{color:'#2ecc71', fontWeight:'bold'}}>{dynamicKcal}</Text> kcal
+                                            </Text>
+                                        </View>
+                                    </View>
+                                    <TouchableOpacity onPress={() => removeSelectedFood(index)} style={{padding:8}}>
+                                        <Ionicons name="trash-outline" size={22} color="#e74c3c" />
+                                    </TouchableOpacity>
+                                </View>
+                            )})}
+                        </ScrollView>
+                    )}
+                </View>
+
+                {/* Macro Summary Box */}
+                <View style={styles.summaryBoxNew}>
+                    <Text style={styles.summaryTitleNew}>Total: {totalMealMacros.calories.toFixed(0)} kcal</Text>
+                    <Text style={styles.summaryTextNew}>P: {totalMealMacros.proteins.toFixed(1)}g | C: {totalMealMacros.carbs.toFixed(1)}g | F: {totalMealMacros.fats.toFixed(1)}g</Text>
+                </View>
+
+                <View style={[styles.modalActionsNew, { gap: 10 }]}>
+                    {editingId && (
+                        <TouchableOpacity style={[styles.modalButtonNew, {backgroundColor:'#c0392b', flex: 0.25}]} onPress={handleDeleteMeal} disabled={savingMeal}>
+                            <Ionicons name="trash-outline" size={20} color="white" />
+                        </TouchableOpacity>
+                    )}
+                    <TouchableOpacity style={[styles.modalButtonNew, styles.cancelButtonNew, { flex: 1 }]} onPress={handleCloseModal}>
+                        <Text style={styles.buttonTextNew}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.modalButtonNew, styles.saveButtonNew, { flex: 1 }]} onPress={handleCreateMeal} disabled={savingMeal}>
+                        {savingMeal ? <ActivityIndicator color="white" size="small" /> : <Text style={styles.buttonTextNew}>{editingId ? "Update" : "Save"}</Text>}
+                    </TouchableOpacity>
+                </View>
             </View>
-          </View>
-        </View>
+            </TouchableWithoutFeedback>
+            </KeyboardAvoidingView>
+        </TouchableOpacity>
       </Modal>
 
       {/* --- CAMERA (OVERLAY CORRIGÉ) --- */}
@@ -555,40 +697,25 @@ const HomeScreen = () => {
                 facing="back" 
                 onBarcodeScanned={scanned ? undefined : handleBarCodeScanned} 
             />
-            
-            {/* OVERLAY SCANNER TYPE "MASQUE" */}
             <View style={styles.overlay}>
-                {/* Couche du haut sombre */}
                 <View style={styles.layerTop} />
-                
                 <View style={styles.layerCenter}>
-                    {/* Gauche sombre */}
                     <View style={styles.layerLeft} />
-                    
-                    {/* Centre transparent (Viseur) */}
                     <View style={styles.focused}>
-                        {/* Coins décoratifs optionnels */}
                         <View style={[styles.corner, {top:0, left:0, borderTopWidth:3, borderLeftWidth:3}]} />
                         <View style={[styles.corner, {top:0, right:0, borderTopWidth:3, borderRightWidth:3}]} />
                         <View style={[styles.corner, {bottom:0, left:0, borderBottomWidth:3, borderLeftWidth:3}]} />
                         <View style={[styles.corner, {bottom:0, right:0, borderBottomWidth:3, borderRightWidth:3}]} />
                     </View>
-                    
-                    {/* Droite sombre */}
                     <View style={styles.layerRight} />
                 </View>
-                
-                {/* Couche du bas sombre */}
                 <View style={styles.layerBottom} />
             </View>
-
-            {/* Instructions */}
             <View style={{position:'absolute', top: 60, width:'100%', alignItems:'center'}}>
                 <Text style={{color:'white', fontSize: 18, fontWeight:'bold', textShadowColor:'black', textShadowRadius:5}}>
                     Scan Barcode
                 </Text>
             </View>
-
             <TouchableOpacity 
                 style={styles.closeCameraButton} 
                 onPress={() => { setIsCameraOpen(false); setIsModalVisible(true); }}
@@ -600,16 +727,16 @@ const HomeScreen = () => {
 
       {/* --- DETAIL MODAL (Scan) --- */}
       <Modal visible={isDetailModalVisible} animationType="slide" transparent>
-        <TouchableOpacity style={styles.modalBackground} activeOpacity={1} onPress={Keyboard.dismiss}>
-            <View style={styles.modalContainer}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={Keyboard.dismiss}>
+            <View style={[styles.mealModalContent, {height: 'auto'}]}>
                 {selectedFood && (
                     <>
                         <Text style={styles.modalTitle}>{selectedFood.name}</Text>
-                        <FoodImage uri={selectedFood.image} style={{width: 100, height: 100, borderRadius: 10, alignSelf:'center', marginBottom:10}} />
+                        <FoodImage uri={selectedFood.image} style={{width: 100, height: 100, borderRadius: 10, alignSelf:'center', marginBottom:15}} />
                         
-                        <Text style={{color:'#ccc', textAlign:'center', marginBottom:5}}>Enter Weight (g)</Text>
+                        <Text style={[styles.inputLabelModal, {textAlign:'center'}]}>Enter Weight (g)</Text>
                         <TextInput 
-                            style={[styles.textInput, {marginBottom: 20, textAlign:'center', fontSize: 20, fontWeight:'bold'}]} 
+                            style={[styles.inputModal, {marginBottom: 20, textAlign:'center', fontSize: 20, fontWeight:'bold'}]} 
                             keyboardType="numeric" 
                             value={grammage} 
                             onChangeText={setGrammage} 
@@ -618,19 +745,12 @@ const HomeScreen = () => {
                             autoFocus
                         />
                         
-                        <View style={{flexDirection:'row', justifyContent:'space-between', gap: 10}}>
-                            <TouchableOpacity 
-                                onPress={() => { setIsDetailModalVisible(false); setIsModalVisible(true); }} 
-                                style={[styles.closeButton, {marginTop:0, flex:1}]}
-                            >
-                                <Text style={{color:'white'}}>Cancel</Text>
+                        <View style={styles.modalActionsNew}>
+                            <TouchableOpacity onPress={() => { setIsDetailModalVisible(false); setIsModalVisible(true); }} style={[styles.modalButtonNew, styles.cancelButtonNew]}>
+                                <Text style={styles.buttonTextNew}>Cancel</Text>
                             </TouchableOpacity>
-
-                            <TouchableOpacity 
-                                onPress={validateGrammageScan} 
-                                style={[styles.modalAddButton, {flex:1}]}
-                            >
-                                <Text style={{color:'white', fontWeight:'bold'}}>Add</Text>
+                            <TouchableOpacity onPress={validateGrammageScan} style={[styles.modalButtonNew, styles.saveButtonNew]}>
+                                <Text style={styles.buttonTextNew}>Add to Meal</Text>
                             </TouchableOpacity>
                         </View>
                     </>
@@ -710,57 +830,26 @@ const styles = StyleSheet.create({
   addButton: { position: 'absolute', bottom: 20, right: 20, backgroundColor: '#3498DB', width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', elevation: 5 },
   modalBackground: { flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "center", alignItems: "center" },
   modalContainer: { width: "90%", backgroundColor: "#2A4562", borderRadius: 15, padding: 20, maxHeight: '90%' }, 
-  modalTitle: { color: 'white', fontSize: 20, fontWeight: 'bold', marginBottom: 15, textAlign:'center' },
+  // modalTitle: { color: 'white', fontSize: 20, fontWeight: 'bold', marginBottom: 15, textAlign:'center' },
   textInput: { backgroundColor: '#1A1F2B', color: 'white', padding: 12, borderRadius: 8 },
   closeButton: { backgroundColor: '#e74c3c', padding: 12, borderRadius: 10, alignItems: 'center', marginTop: 10, width:'100%' },
   createButton: { backgroundColor: '#3498DB', padding: 15, borderRadius: 10, alignItems: 'center', width:'100%' },
   modalAddButton: { backgroundColor: '#2ecc71', padding: 12, borderRadius: 8, alignItems: 'center', minWidth: 80 },
   
-  // MEAL FORM
-  rowContainer: { flexDirection: 'row', gap: 10 },
-  timeContainer: { flex: 1 }, nameContainer: { flex: 2 },
-  label: { color: '#ccc', fontSize: 12, marginBottom: 5 },
-  timeButton: { backgroundColor: '#1A1F2B', padding: 12, borderRadius: 8, alignItems: 'center' },
-  timeText: { color: '#3498DB', fontWeight: 'bold' },
-  searchRow: { flexDirection: 'row', marginTop: 5, alignItems: 'center' },
-  searchInput: { backgroundColor: '#1A1F2B', color: 'white', padding: 10, borderRadius: 8 },
-  searchButton: { backgroundColor: '#3498DB', padding: 10, borderRadius: 8, marginLeft: 8 },
+  // OLD MEAL FORM STYLES (Keep for View/Goal Modals)
+  // rowContainer: { flexDirection: 'row', gap: 10 },
+  // timeContainer: { flex: 1 }, nameContainer: { flex: 2 },
+  // label: { color: '#ccc', fontSize: 12, marginBottom: 5 },
+  // timeButton: { backgroundColor: '#1A1F2B', padding: 12, borderRadius: 8, alignItems: 'center' },
+  // timeText: { color: '#3498DB', fontWeight: 'bold' },
+  // searchRow: { flexDirection: 'row', marginTop: 5, alignItems: 'center' },
+  // searchInput: { backgroundColor: '#1A1F2B', color: 'white', padding: 10, borderRadius: 8 },
+  // searchButton: { backgroundColor: '#3498DB', padding: 10, borderRadius: 8, marginLeft: 8 },
   
-  // LISTS & RESULTS
+  // OLD LISTS & RESULTS (Keep for View Modal)
   resultItem: { flexDirection: 'row', alignItems: 'center', padding: 10, borderBottomWidth:1, borderBottomColor:'#333' },
   resultImage: { width: 40, height: 40, borderRadius: 20, marginRight: 10 },
   resultText: { color: 'white', fontWeight: 'bold', flex: 1 },
-
-  // CORRECTION LISTE (ZONE DÉDIÉE)
-  fixedListContainer: { 
-      marginTop: 20, 
-      height: 250, // Hauteur FIXE pour garantir l'affichage
-      marginBottom: 10
-  },
-  emptyListPlaceholder: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      borderWidth: 1,
-      borderColor: '#444',
-      borderStyle: 'dashed',
-      borderRadius: 8,
-      backgroundColor: '#253545'
-  },
-  selectedFoodRow: { 
-      flexDirection: 'row', 
-      alignItems: 'center', 
-      backgroundColor: '#1F2937', 
-      padding: 10, 
-      borderRadius: 8, 
-      marginBottom: 8,
-      borderLeftWidth: 3, 
-      borderLeftColor: '#3498DB'
-  },
-  selectedFoodImage: { width: 40, height: 40, borderRadius: 8, marginRight: 10 },
-  selectedFoodInfo: { flex: 1 },
-  selectedFoodName: { color: 'white', fontWeight: 'bold', fontSize: 14 },
-  selectedFoodStats: { color: '#aaa', fontSize: 12, marginTop: 2 },
 
   // CAMERA OVERLAY
   overlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center' },
@@ -771,7 +860,46 @@ const styles = StyleSheet.create({
   layerRight: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.6)' },
   layerBottom: { flex: 1, width: '100%', backgroundColor: 'rgba(0, 0, 0, 0.6)' },
   corner: { position: 'absolute', width: 20, height: 20, borderColor: 'white' },
-  closeCameraButton: { position: 'absolute', bottom: 50, alignSelf:'center', backgroundColor:'white', width:60, height:60, borderRadius:30, justifyContent:'center', alignItems:'center' }
+  closeCameraButton: { position: 'absolute', bottom: 50, alignSelf:'center', backgroundColor:'white', width:60, height:60, borderRadius:30, justifyContent:'center', alignItems:'center' },
+
+  // ============================================================
+  // NOUVEAUX STYLES "ADVANCED MEAL BUILDER" (Design Coach adapté)
+  // ============================================================
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', padding: 20 },
+  mealModalContent: { backgroundColor: '#1A1F2B', borderRadius: 15, padding: 20, borderWidth: 1, borderColor: '#2ecc71', maxHeight: '90%', width: '100%' },
+  modalTitle: { color: 'white', fontSize: 18, fontWeight: 'bold', marginBottom: 15, textAlign: 'center' },
+  inputLabelModal: { color: '#aaa', marginBottom: 8, fontSize: 13, fontWeight: 'bold' },
+  inputModal: { backgroundColor: '#2A4562', color: 'white', padding: 12, borderRadius: 8, fontSize: 16, marginBottom: 10 },
+  
+  timeButtonNew: { backgroundColor: '#2A4562', padding: 12, borderRadius: 8, marginBottom: 10, flexDirection:'row', justifyContent:'space-between', alignItems:'center' },
+  timeTextNew: { color: 'white', fontWeight: 'bold' },
+
+  searchRowNew: { flexDirection: 'row', gap: 10, marginBottom: 15 },
+  searchBtnNew: { backgroundColor: '#3498DB', padding: 12, borderRadius: 8, justifyContent: 'center', width: 44, alignItems:'center' },
+  scanBtnNew: { backgroundColor: '#9b59b6', padding: 12, borderRadius: 8, justifyContent: 'center', width: 44, alignItems:'center' },
+  
+  resultsBoxNew: { backgroundColor: '#1E2C3D', borderRadius: 8, padding: 5, maxHeight: 150, marginBottom: 10 },
+  resultItemNew: { flexDirection: 'row', alignItems: 'center', padding: 10, borderBottomWidth: 1, borderBottomColor: '#333' },
+  resultImageNew: { width: 30, height: 30, borderRadius: 15, marginRight: 10 },
+  resultTextNew: { color: 'white', fontWeight: 'bold', flex: 1 },
+
+  fixedListContainerNew: { height: 180, marginBottom: 10, flexShrink: 1 },
+  modalActionsNew: { flexDirection: 'row', marginTop: 15, width:'100%', paddingBottom: 5 },
+  emptyListPlaceholderNew: { flex: 1, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#444', borderStyle: 'dashed', borderRadius: 8, backgroundColor: '#253545' },
+  selectedFoodRowNew: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1F2937', padding: 10, borderRadius: 8, marginBottom: 8, borderLeftWidth: 3, borderLeftColor: '#2ecc71' },
+  selectedFoodImageNew: { width: 35, height: 35, borderRadius: 8, marginRight: 10 },
+  selectedFoodInfoNew: { flex: 1 },
+  selectedFoodNameNew: { color: 'white', fontWeight: 'bold', fontSize: 14 },
+  amountInputNew: { backgroundColor: '#1A1F2B', color: 'white', width: 50, textAlign: 'center', borderRadius: 4, padding: 4, fontSize: 12 },
+
+  summaryBoxNew: { marginTop: 10, padding: 15, backgroundColor: '#232D3F', borderRadius: 10, alignItems: 'center', borderWidth: 1, borderColor: '#2ecc71' },
+  summaryTitleNew: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+  summaryTextNew: { color: '#aaa', fontSize: 12, marginTop: 4 },
+
+  modalButtonNew: { flex: 0.48, padding: 15, borderRadius: 8, alignItems: 'center', justifyContent:'center' },
+  cancelButtonNew: { backgroundColor: '#e74c3c' },
+  saveButtonNew: { backgroundColor: '#2ecc71' },
+  buttonTextNew: { color: 'white', fontWeight: 'bold' },
 });
 
 export default HomeScreen;
