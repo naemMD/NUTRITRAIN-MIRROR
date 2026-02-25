@@ -85,7 +85,6 @@ const SettingsScreen = () => {
         />
       </View>
 
-      <Text style={styles.version}>NutriTrain Coach Edition • v1.0.4</Text>
       <View style={{ height: 100 }} />
     </ScrollView>
   );
