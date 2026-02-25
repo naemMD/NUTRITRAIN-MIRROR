@@ -5,6 +5,7 @@ from app.database import engine, Base
 from app.database import get_session
 from app.model import *
 from app.API.ApiController import get_aliment_from_API 
+from fastapi.middleware.cors import CORSMiddleware
 
 # async def populate_database():
 #     async for session in get_session():
@@ -20,6 +21,14 @@ async def init_models():
 
 def create_app(): 
     app = FastAPI()
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     @app.on_event("startup")
     async def on_startup():
