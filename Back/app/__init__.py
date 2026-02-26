@@ -22,9 +22,15 @@ async def init_models():
 def create_app(): 
     app = FastAPI()
 
+    origins = [
+        "http://localhost",
+        "http://localhost:8081",
+        "https://nutritrain-mirror.vercel.app"
+    ]
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -33,7 +39,6 @@ def create_app():
     @app.on_event("startup")
     async def on_startup():
         await init_models()
-        # await populate_database()
     
     app.include_router(router)
 
