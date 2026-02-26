@@ -24,11 +24,11 @@ const CoachListScreen = () => {
   const [clientCode, setClientCode] = useState('#'); 
   const [adding, setAdding] = useState(false);
 
-
   const fetchClients = async (id = userId) => {
     if (!id) return;
     try {
         const token = await getToken();
+        console.log("token for deletion:", token);
         const response = await axios.get(`${API_URL}/coaches/${id}/clients`, {
             headers: { Authorization: `Bearer ${token}` }
         });
@@ -97,7 +97,7 @@ const CoachListScreen = () => {
 
           Toast.show({
               type: 'success',
-              text1: 'Invitation sent!',
+              text1: 'Invitation sent! 🚀',
               text2: 'Your coaching request has been sent to the client.'
           });
 
@@ -127,8 +127,20 @@ const CoachListScreen = () => {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 fetchSentInvitations();
+                
+                // ✨ AJOUT DU TOAST DE SUCCÈS ICI
+                Toast.show({
+                    type: 'success',
+                    text1: 'Deleted',
+                    text2: 'The invitation has been successfully removed.'
+                });
             } catch (e) {
-                Alert.alert("Error", "Could not delete invitation.");
+                // ✨ REMPLACEMENT DE L'ALERT PAR UN TOAST D'ERREUR
+                Toast.show({
+                    type: 'error',
+                    text1: 'Oops!',
+                    text2: 'Could not delete invitation. Please try again.'
+                });
             }
         }}
     ]);
@@ -146,19 +158,18 @@ const CoachListScreen = () => {
   };
 
   // --- RENDU ITEMS ---
-
   const renderClientItem = ({ item }: any) => (
-    <View style={styles.coachItem}>
-      <View style={styles.coachInfoContainer}>
-        <View style={styles.coachAvatar}>
+    <View style={styles.clientItem}>
+      <View style={styles.clientInfoContainer}>
+        <View style={styles.clientAvatar}>
             <Text style={{fontSize: 20, fontWeight:'bold', color: '#2A4562'}}>
                 {item.firstname ? item.firstname[0] : '?'}
             </Text>
         </View>
-        <View style={styles.coachDetails}>
-          <Text style={styles.coachName}>{item.firstname} {item.lastname}</Text>
-          <Text style={styles.coachMeta}>Age: {item.age} • {item.gender}</Text>
-          <Text style={styles.coachMeta}>Goal: {item.goal} kcal</Text>
+        <View style={styles.clientDetails}>
+          <Text style={styles.clientName}>{item.firstname} {item.lastname}</Text>
+          <Text style={styles.clientMeta}>Age: {item.age} • {item.gender}</Text>
+          <Text style={styles.clientMeta}>Goal: {item.goal ? String(item.goal).replace('_', ' ') : 'Not specified'}</Text>
         </View>
       </View>
       
@@ -222,7 +233,7 @@ const CoachListScreen = () => {
             data={clients}
             renderItem={renderClientItem}
             keyExtractor={item => item.id.toString()}
-            contentContainerStyle={styles.coachList}
+            contentContainerStyle={styles.clientList}
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={
                 <View style={{marginTop: 50, paddingHorizontal: 30}}>
@@ -286,13 +297,16 @@ const styles = StyleSheet.create({
   addClientText: { color: 'white', fontWeight: 'bold', marginLeft: 5 },
   sectionLabel: { color: '#8A8D91', fontSize: 12, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 1 },
   invitationItem: { backgroundColor: '#1E2C3D', borderRadius: 12, padding: 12, marginTop: 10, flexDirection: 'row', alignItems: 'center', borderLeftWidth: 4 },
-  coachList: { paddingHorizontal: 16, paddingBottom: 20 },
-  coachItem: { backgroundColor: '#2A4562', borderRadius: 10, marginBottom: 16, padding: 12 },
-  coachInfoContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  coachAvatar: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#CCCCCC', justifyContent: 'center', alignItems: 'center' },
-  coachDetails: { marginLeft: 10 },
-  coachName: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },
-  coachMeta: { color: '#FFFFFF', fontSize: 14 },
+  
+  // NOMS DE CLASSES CORRIGÉS (client au lieu de coach)
+  clientList: { paddingHorizontal: 16, paddingBottom: 20 },
+  clientItem: { backgroundColor: '#2A4562', borderRadius: 10, marginBottom: 16, padding: 12 },
+  clientInfoContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  clientAvatar: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#CCCCCC', justifyContent: 'center', alignItems: 'center' },
+  clientDetails: { marginLeft: 10 },
+  clientName: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },
+  clientMeta: { color: '#FFFFFF', fontSize: 14, textTransform: 'capitalize' },
+  
   actionButtonsContainer: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 5 },
   actionButton: { backgroundColor: '#3498DB', borderRadius: 20, paddingVertical: 8, paddingHorizontal: 16, alignItems: 'center', width: width * 0.35 },
   actionButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: 'bold' },

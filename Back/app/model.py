@@ -58,28 +58,27 @@ async def register_user(session: AsyncSession, user_data: dict):
     random_digits = secrets.randbelow(1000000)
     generated_code = f"#{random_digits:06d}"
 
+    role_str = str(user_data.get("role", "")).lower()
+
     new_user = Users(
         firstname=user_data["firstname"],
         lastname=user_data["lastname"],
-        gender=user_data["gender"],
+        gender=user_data.get("gender"),
         email=user_data["email"],
         age=user_data["age"],
-        role=user_data["role"],
+        role=role_str,
         nationality=user_data.get("nationality"),
         language=user_data.get("language"),
         coach_id=user_data.get("coach_id"),
         height=user_data.get("height"),
         weight=user_data.get("weight"),
-        unique_code=generated_code
+        unique_code=generated_code,
+        city=user_data.get("city") if role_str == 'coach' else None,
+        latitude=user_data.get("latitude") if role_str == 'coach' else None,
+        longitude=user_data.get("longitude") if role_str == 'coach' else None
     )
 
-    if (new_user.role == 'coach'):
-            new_user.city = user_data.get("city")
-            new_user.latitude = user_data.get("latitude")
-            new_user.longitude = user_data.get("longitude")
-
     new_user.password = user_data["password"]
-
     try:
         session.add(new_user)
         await session.commit()

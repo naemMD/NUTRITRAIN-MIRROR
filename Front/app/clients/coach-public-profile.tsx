@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import Constants from 'expo-constants';
 import { getToken } from '@/services/authStorage';
+import { Toast } from 'react-native-toast-message/lib/src/Toast';
 
 const CoachPublicProfile = () => {
   const { coachId, invitationId } = useLocalSearchParams();
@@ -24,7 +25,7 @@ const CoachPublicProfile = () => {
       const response = await axios.get(`${API_URL}/coaches/${coachId}/public-profile`);
       setCoach(response.data);
     } catch (error) {
-      Alert.alert("Error", "Could not load coach profile.");
+      Toast.show({ type: 'error', text1: 'Failed to load coach profile.' });
       router.back();
     } finally {
       setLoading(false);
@@ -64,10 +65,10 @@ const CoachPublicProfile = () => {
         ? "You are now linked with your new coach!" 
         : "Invitation declined.";
       
-      Alert.alert("Success", message);
+      Toast.show({ type: 'success', text1: message });
       router.push('/clients/home');
     } catch (error: any) {
-      Alert.alert("Error", error.response?.data?.detail || "Action failed.");
+      Toast.show({ type: 'error', text1: error.response?.data?.message || 'An error occurred. Please try again.' });
     } finally {
       setProcessing(false);
     }

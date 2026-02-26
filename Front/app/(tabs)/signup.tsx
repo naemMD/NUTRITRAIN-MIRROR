@@ -1,18 +1,22 @@
 import React, { useState, useRef } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator } from 'react-native';import { Ionicons } from '@expo/vector-icons';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
 import Toast from 'react-native-toast-message';
+import * as Location from 'expo-location';
+import axios from 'axios';
 
+// 🔥 IMPORT DÉCOMMENTÉ : Indispensable pour l'auto-login
 import { saveSession } from '@/services/authStorage';
 
 const SignupPage = () => {
   const insets = useSafeAreaInsets();
   const navigation = useRouter();
   
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
+  const [firstname, setFirstName] = useState('');
+  const [lastname, setLastName] = useState('');
   const [userGender, setUserGender] = useState('');
   const [age, setAge] = useState('');
   const [email, setEmail] = useState('');
@@ -37,15 +41,14 @@ const SignupPage = () => {
   const [isSearchingCity, setIsSearchingCity] = useState(false);
   const [selectedCity, setSelectedCity] = useState<any>(null);
 
-  const firstNameRef = useRef(null);
-  const lastNameRef = useRef(null);
-  const ageRef = useRef(null);
-  const emailRef = useRef(null);
-  const passwordRef = useRef(null);
-  const confirmPasswordRef = useRef(null);
+  const firstNameRef = useRef<TextInput>(null);
+  const lastNameRef = useRef<TextInput>(null);
+  const ageRef = useRef<TextInput>(null);
+  const emailRef = useRef<TextInput>(null);
+  const passwordRef = useRef<TextInput>(null);
+  const confirmPasswordRef = useRef<TextInput>(null);
   
   const API_URL = Constants.expoConfig?.extra?.API_URL ?? '';
-  const CITY_API_URL = Constants.expoConfig?.extra?.CITY_API_URL ?? '';
 
   const searchCityApi = async (text: string) => {
     setCitySearch(text);
@@ -75,6 +78,13 @@ const SignupPage = () => {
     }
   };
   
+  const handleSelectCity = (cityItem: any) => {
+    setSelectedCity(cityItem);
+    setCitySearch(cityItem.name); 
+    setCity(cityItem.name);       
+    setCityResults([]);
+  };
+
   const validateForm = () => {
     setErrorField('');
 
@@ -87,14 +97,14 @@ const SignupPage = () => {
       return false;
     }
     
-    if (!firstName || firstName.trim() === '') {
+    if (!firstname || firstname.trim() === '') {
       setErrorField('firstname');
       firstNameRef.current?.focus();
       Toast.show({ type: 'error', text1: 'Erreur', text2: 'Please enter your first name' });
       return false;
     }
 
-    if (!lastName || lastName.trim() === '') {
+    if (!lastname || lastname.trim() === '') {
       setErrorField('lastname');
       lastNameRef.current?.focus();
       Toast.show({ type: 'error', text1: 'Erreur', text2: 'Please enter your last name' });
@@ -147,77 +157,67 @@ const SignupPage = () => {
     return true;
   };
   
-  const handleSignup = async () => {
+  const handleRegister = async () => {
     if (!validateForm()) return;
+
     setLoading(true);
-    
+    let currentLat = null;
+    let currentLon = null;
+
     try {
-      const userData = {
-        email: email,
-        firstname: firstName,
-        lastname: lastName,
-        gender: userGender,
-        age: Number(age),
-        password: password,
-        role: userType,
-      };
+        let { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+            let location = await Location.getCurrentPositionAsync({});
+            currentLat = location.coords.latitude;
+            currentLon = location.coords.longitude;
+        } else {
+            console.log("Permission GPS refusée, utilisation des coordonnées de la ville choisie.");
+            if (selectedCity) {
+                currentLat = selectedCity.latitude;
+                currentLon = selectedCity.longitude;
+            }
+        }
+    } catch (error) {
+        console.log("Erreur de localisation :", error);
+        if (selectedCity) {
+            currentLat = selectedCity.latitude;
+            currentLon = selectedCity.longitude;
+        }
+    }
 
-      if (userType === 'coach') {
-        userData.city = city;
-      } else if (userType === 'client') {
-        userData.weight = parseFloat(weight) || null;
-        userData.height = parseFloat(height) || null;
-        userData.goal = goal;
-      }
-
-      const response = await fetch(`${API_URL}/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify(userData),
-      });
-      
-      let data;
-      try {
-        data = await response.json();
-      } catch (jsonError) {
-        throw new Error('Invalid response format from server');
-      }
-      
-      if (!response.ok) {
-        setErrorField('email');
-        emailRef.current?.focus();
-        Toast.show({
-          type: 'error',
-          text1: 'Signup Failed',
-          text2: data.detail || 'Please check your information.',
+    try {
+        // 🔥 1. On stocke la réponse de l'API dans 'response'
+        const response = await axios.post(`${API_URL}/register`, {
+            email: email,
+            password: password,
+            firstname: firstname,
+            lastname: lastname,
+            age: parseInt(age),
+            gender: userGender,
+            role: userType,
+            city: city,
+            latitude: currentLat,
+            longitude: currentLon,
+            weight: weight ? parseFloat(weight) : null,
+            height: height ? parseFloat(height) : null,
+            goal: goal
         });
-        setLoading(false);
-        return; 
-      }
-      
-      const { access_token } = data;
-      await saveSession(access_token);
-      
-      Toast.show({
-        type: 'success',
-        text1: 'Account created!',
-        text2: 'Welcome to NutriTrain.',
-      });
+        
+        // 🔥 2. AUTO-LOGIN : ON SAUVEGARDE LE TOKEN ICI
+        await saveSession(response.data.access_token, response.data.user);
 
-      let route = userType === 'coach' ? '/coachs/home' : '/clients/home';
-      navigation.push(`${route}`);
-      
-    } catch (err) {
-      Toast.show({
-        type: 'error',
-        text1: 'Connection Error',
-        text2: err.message || 'Unable to connect to the server.',
-      });
+        Toast.show({ type: 'success', text1: 'Account Created', text2: 'Your account has been created successfully!' });
+        
+        setTimeout(() => {
+          let route = userType === 'coach' ? '/coachs/home' : '/clients/home';
+          navigation.push(`${route}`);
+        }, 1500);
+        
+    } catch (error: any) {
+        console.error("Erreur d'inscription:", error);
+        Toast.show({ type: 'error', text1: 'Registration Failed', text2: error.response?.data?.detail || 'An error occurred during registration. Please try again.' });
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
   };
   
@@ -226,7 +226,7 @@ const SignupPage = () => {
       const response = await fetch(`${API_URL}/`);
       const data = await response.json();
       Toast.show({ type: 'info', text1: 'Server OK', text2: JSON.stringify(data) });
-    } catch (err) {
+    } catch (err: any) {
       Toast.show({ type: 'error', text1: 'Server Error', text2: err.message });
     }
   };
@@ -260,7 +260,7 @@ const SignupPage = () => {
             style={[styles.input, errorField === 'firstname' && styles.inputError]} 
             placeholder="Enter your firstname" 
             placeholderTextColor="#8A8D91" 
-            value={firstName} 
+            value={firstname} 
             onChangeText={(text) => { setFirstName(text); setErrorField(''); }} 
           />
 
@@ -270,7 +270,7 @@ const SignupPage = () => {
             style={[styles.input, errorField === 'lastname' && styles.inputError]} 
             placeholder="Enter your lastname" 
             placeholderTextColor="#8A8D91" 
-            value={lastName} 
+            value={lastname} 
             onChangeText={(text) => { setLastName(text); setErrorField(''); }} 
           />
 
@@ -359,7 +359,6 @@ const SignupPage = () => {
                   placeholder="Where do you coach? (e.g. Marseille)" 
                   placeholderTextColor="#8A8D91" 
                   value={citySearch} 
-                  
                   onChangeText={searchCityApi} 
                 />
                 
@@ -367,28 +366,27 @@ const SignupPage = () => {
                   <ActivityIndicator size="small" color="#3498DB" style={{ position: 'absolute', right: 15, top: 15 }} />
                 )}
 
-                {cityResults.length > 0 && !selectedCity && (
-                  <View style={styles.cityDropdown}>
-                    {cityResults.map((item, index) => (
-                      <TouchableOpacity 
-                        key={index} 
-                        style={styles.cityResultItem}
-                        onPress={() => {
-                          setSelectedCity(item);
-                          setCitySearch(`${item.name}, ${item.country}`);
-                          setCityResults([]); 
-                        }}
-                      >
-                        <Ionicons name="location-outline" size={18} color="#aaa" style={{ marginRight: 10 }} />
-                        <View>
-                          <Text style={{ color: 'white', fontWeight: 'bold' }}>{item.name}</Text>
-                          <Text style={{ color: '#888', fontSize: 12 }}>
-                            {item.admin1 ? `${item.admin1}, ` : ''}{item.country}
-                          </Text>
-                        </View>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
+                {cityResults.length > 0 && (
+                    <View style={styles.dropdownContainer}>
+                        <ScrollView 
+                            style={{ maxHeight: 200 }} 
+                            nestedScrollEnabled={true} 
+                            keyboardShouldPersistTaps="handled"
+                        >
+                            {cityResults.map((item, index) => (
+                                <TouchableOpacity 
+                                    key={index} 
+                                    style={styles.dropdownItem}
+                                    onPress={() => handleSelectCity(item)}
+                                >
+                                    <Text style={styles.dropdownItemText}>{item.name}</Text>
+                                    <Text style={{ color: '#8A8D91', fontSize: 12, marginTop: 2 }}>
+                                        {item.admin1 ? `${item.admin1}, ` : ''}{item.country}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+                    </View>
                 )}
 
               </View>
@@ -410,7 +408,6 @@ const SignupPage = () => {
 
               <Text style={styles.inputLabel}>Main Goal</Text>
               <View style={styles.goalContainer}>
-                {/* MODIFICATION ICI : On utilise les vraies valeurs de la BDD pour l'état */}
                 {['lose_weight', 'maintain_weight', 'gain_muscle'].map((g) => (
                   <TouchableOpacity 
                     key={g} 
@@ -428,8 +425,8 @@ const SignupPage = () => {
 
         </View>
         
-        <TouchableOpacity style={[styles.signupButton, loading && styles.signupButtonDisabled]} onPress={handleSignup} disabled={loading}>
-          <Text style={styles.signupButtonText}>{loading ? 'Creating Account...' : 'Sign Up'}</Text>
+        <TouchableOpacity style={[styles.signupButton, loading && styles.signupButtonDisabled]} onPress={handleRegister} disabled={loading}>
+          {loading ? <ActivityIndicator color="white" /> : <Text style={styles.signupButtonText}>Sign Up</Text>}
         </TouchableOpacity>
         
         <View style={styles.loginContainer}>
@@ -448,6 +445,32 @@ const SignupPage = () => {
 };
 
 const styles = StyleSheet.create({
+  dropdownContainer: { 
+    position: 'absolute', 
+    top: 55, 
+    left: 0, 
+    right: 0, 
+    backgroundColor: '#1E2C3D', 
+    borderRadius: 10, 
+    borderWidth: 1, 
+    borderColor: '#3498DB', 
+    zIndex: 1000,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  dropdownItem: { 
+    padding: 12, 
+    borderBottomWidth: 1, 
+    borderBottomColor: '#2A4562' 
+  },
+  dropdownItemText: { 
+    color: '#FFFFFF', 
+    fontSize: 16,
+    fontWeight: 'bold'
+  },
   container: { flex: 1, backgroundColor: '#1A1F2B' },
   scrollContainer: { flexGrow: 1, padding: 20 },
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: 30, justifyContent: 'space-between' },
@@ -457,7 +480,7 @@ const styles = StyleSheet.create({
   appNameWhite: { color: '#FFFFFF' },
   title: { fontSize: 30, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 10 },
   subtitle: { fontSize: 16, color: '#FFFFFF', marginBottom: 30 },
-  formContainer: { marginBottom: 20 },
+  formContainer: { marginBottom: 20, zIndex: 1 }, 
   inputLabel: { color: '#FFFFFF', fontSize: 16, marginBottom: 8 },
   input: { backgroundColor: '#2A4562', borderRadius: 10, paddingHorizontal: 15, paddingVertical: 12, color: '#FFFFFF', fontSize: 16, marginBottom: 20, borderWidth: 1, borderColor: 'transparent' },
   inputError: { borderColor: '#FF6B6B', borderWidth: 1 },
@@ -474,21 +497,19 @@ const styles = StyleSheet.create({
   selectedUserGender: { backgroundColor: '#3498DB' },
   userGenderText: { color: '#FFFFFF', fontSize: 16 },
   selectedUserGenderText: { fontWeight: 'bold' },
-  dynamicSection: { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#2A4562' },
+  dynamicSection: { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#2A4562', zIndex: 2 },
   goalContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
   goalButton: { backgroundColor: '#2A4562', borderRadius: 10, paddingVertical: 12, flex: 1, marginHorizontal: 4, alignItems: 'center' },
   selectedGoalButton: { backgroundColor: '#3498DB' },
   goalText: { color: '#FFFFFF', fontSize: 11, textAlign: 'center' },
   selectedGoalText: { fontWeight: 'bold' },
-  signupButton: { backgroundColor: '#3498DB', borderRadius: 10, paddingVertical: 15, alignItems: 'center', marginBottom: 20 },
+  signupButton: { backgroundColor: '#3498DB', borderRadius: 10, paddingVertical: 15, alignItems: 'center', marginBottom: 20, zIndex: 0 },
   signupButtonDisabled: { backgroundColor: '#2A4562', opacity: 0.7 },
   signupButtonText: { color: '#FFFFFF', fontSize: 18, fontWeight: 'bold' },
   loginContainer: { flexDirection: 'row', justifyContent: 'center', marginBottom: 20 },
   loginText: { color: '#FFFFFF', fontSize: 16 },
   loginLink: { color: '#3498DB', fontSize: 16, fontWeight: 'bold' },
   termsText: { color: '#8A8D91', fontSize: 14, textAlign: 'center', marginBottom: 20 },
-  cityDropdown: { backgroundColor: '#1E2C3D', borderRadius: 10, borderWidth: 1, borderColor: '#3498DB', maxHeight: 200, marginBottom: 20, overflow: 'hidden' },
-  cityResultItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: '#2A4562' },
 });
 
 export default SignupPage;
