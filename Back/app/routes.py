@@ -866,7 +866,7 @@ async def get_coach_public_profile(
         select(Users).where(
             and_(
                 Users.id == coach_id, 
-                func.lower(Users.role) == 'coach'
+                Users.role == 'coach'
             )
         )
     )
@@ -886,8 +886,8 @@ async def get_coach_public_profile(
         "city": coach.city,
         "stats": {
             "active_clients": active_clients,
-            "workouts_created": 154,
-            "forum_posts": 28
+            "workouts_created": 154, 
+            "forum_posts": 28 
         },
         "certifications": [
             "NASM Certified Personal Trainer",
