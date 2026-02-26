@@ -17,7 +17,6 @@ import { getToken } from '@/services/authStorage';
 
 const { width } = Dimensions.get('window');
 
-// --- UTILITY COMPONENT FOR FOOD IMAGES ---
 const FoodImage = ({ uri, style, iconSize = 24 }: any) => {
   const hasValidImage = uri && uri !== '' && uri !== 'null';
   if (hasValidImage) {
@@ -29,6 +28,12 @@ const FoodImage = ({ uri, style, iconSize = 24 }: any) => {
       </View>
     );
   }
+};
+
+const goalLabels: { [key: string]: string } = {
+  'lose_weight': '📉 Weight Loss',
+  'maintain_weight': '⚖️ Maintain',
+  'gain_muscle': '💪 Muscle Gain'
 };
 
 const ClientDetailsScreen = () => {
@@ -544,12 +549,36 @@ const ClientDetailsScreen = () => {
         <View style={{ flex: 1, justifyContent: 'center' }}><ActivityIndicator size="large" color="#3498DB" /></View>
       ) : (
         <ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag">
-            {/* PROFILE */}
-            <View style={styles.profileCard}>
+          {/* PROFILE */}
+          <View style={styles.profileCard}>
                 <View style={styles.avatar}><Text style={styles.avatarText}>{clientData?.firstname?.[0]}</Text></View>
-                <View style={{marginLeft: 15}}>
+                <View style={{marginLeft: 15, flex: 1}}>
                     <Text style={styles.clientName}>{clientData?.firstname} {clientData?.lastname}</Text>
                     <Text style={styles.clientInfo}>{clientData?.age} years old • {clientData?.gender}</Text>
+                    
+                    {/* Ligne des badges : Objectif + Mensurations */}
+                    <View style={styles.badgesContainer}>
+                        {/* Badge Objectif */}
+                        <View style={styles.goalBadge}>
+                            <Text style={styles.goalBadgeText}>
+                                {clientData?.goal ? goalLabels[clientData.goal] : 'No goal specified'}
+                            </Text>
+                        </View>
+                        
+                        {/* Badge Poids (S'il est renseigné) */}
+                        {clientData?.weight ? (
+                            <View style={styles.metricBadge}>
+                                <Text style={styles.metricBadgeText}>{clientData.weight} kg</Text>
+                            </View>
+                        ) : null}
+
+                        {/* Badge Taille (S'il est renseigné) */}
+                        {clientData?.height ? (
+                            <View style={styles.metricBadge}>
+                                <Text style={styles.metricBadgeText}>{clientData.height} cm</Text>
+                            </View>
+                        ) : null}
+                    </View>
                 </View>
             </View>
 
@@ -1112,6 +1141,14 @@ const styles = StyleSheet.create({
   largeBackButton: { alignSelf: 'center', width: '100%', height: 65, backgroundColor: '#e74c3c', borderRadius: 12, marginTop: 10, justifyContent: 'center', alignItems: 'center' },
   largeBackButtonText: { color: 'white', fontWeight: 'bold', fontSize: 18 },
 
+  goalBadge: { backgroundColor: 'rgba(52, 152, 219, 0.15)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, alignSelf: 'flex-start', marginTop: 8, borderWidth: 1, borderColor: '#3498DB' },
+  goalBadgeText: { color: '#3498DB', fontSize: 12, fontWeight: 'bold' },
+
+  badgesContainer: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 },
+  
+  metricBadge: { backgroundColor: 'rgba(255, 255, 255, 0.1)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, marginRight: 8, marginBottom: 5, justifyContent: 'center' },
+  metricBadgeText: { color: '#ddd', fontSize: 12, fontWeight: 'bold' },
+  
   // CAMERA OVERLAY
   overlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center' },
   layerTop: { flex: 1, width: '100%', backgroundColor: 'rgba(0, 0, 0, 0.6)' },

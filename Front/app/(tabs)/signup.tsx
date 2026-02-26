@@ -1,6 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator } from 'react-native';import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
@@ -24,13 +23,19 @@ const SignupPage = () => {
   const [city, setCity] = useState('');
   const [weight, setWeight] = useState('');
   const [height, setHeight] = useState('');
-  const [goal, setGoal] = useState('Perte de poids');
+
+  const [goal, setGoal] = useState('lose_weight');
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
   const [errorField, setErrorField] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const [citySearch, setCitySearch] = useState('');
+  const [cityResults, setCityResults] = useState<any[]>([]);
+  const [isSearchingCity, setIsSearchingCity] = useState(false);
+  const [selectedCity, setSelectedCity] = useState<any>(null);
 
   const firstNameRef = useRef(null);
   const lastNameRef = useRef(null);
@@ -40,9 +45,47 @@ const SignupPage = () => {
   const confirmPasswordRef = useRef(null);
   
   const API_URL = Constants.expoConfig?.extra?.API_URL ?? '';
+  const CITY_API_URL = Constants.expoConfig?.extra?.CITY_API_URL ?? '';
+
+  const searchCityApi = async (text: string) => {
+    setCitySearch(text);
+    setSelectedCity(null);
+
+    if (text.length < 3) {
+      setCityResults([]);
+      return;
+    }
+
+    setIsSearchingCity(true);
+    try {
+      const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(text)}&count=5&language=fr&format=json`;
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      if (data.results) {
+        setCityResults(data.results);
+      } else {
+        setCityResults([]);
+      }
+    } catch (error) {
+      console.log("Erreur API Ville:", error);
+    } finally {
+      setIsSearchingCity(false);
+    }
+  };
   
   const validateForm = () => {
     setErrorField('');
+
+    if (userType === 'coach' && !selectedCity) {
+      Toast.show({ 
+        type: 'error', 
+        text1: 'City Required', 
+        text2: 'Please select a valid city from the dropdown list.' 
+      });
+      return false;
+    }
     
     if (!firstName || firstName.trim() === '') {
       setErrorField('firstname');
@@ -309,13 +352,46 @@ const SignupPage = () => {
           {userType === 'coach' && (
             <View style={styles.dynamicSection}>
               <Text style={styles.inputLabel}>City</Text>
-              <TextInput 
-                style={styles.input} 
-                placeholder="Where do you coach? (e.g. Marseille)" 
-                placeholderTextColor="#8A8D91" 
-                value={city} 
-                onChangeText={setCity} 
-              />
+              <View style={{ zIndex: 10 }}>
+                
+                <TextInput 
+                  style={[styles.input, { marginBottom: cityResults.length > 0 && !selectedCity ? 0 : 20 }]} 
+                  placeholder="Where do you coach? (e.g. Marseille)" 
+                  placeholderTextColor="#8A8D91" 
+                  value={citySearch} 
+                  
+                  onChangeText={searchCityApi} 
+                />
+                
+                {isSearchingCity && (
+                  <ActivityIndicator size="small" color="#3498DB" style={{ position: 'absolute', right: 15, top: 15 }} />
+                )}
+
+                {cityResults.length > 0 && !selectedCity && (
+                  <View style={styles.cityDropdown}>
+                    {cityResults.map((item, index) => (
+                      <TouchableOpacity 
+                        key={index} 
+                        style={styles.cityResultItem}
+                        onPress={() => {
+                          setSelectedCity(item);
+                          setCitySearch(`${item.name}, ${item.country}`);
+                          setCityResults([]); 
+                        }}
+                      >
+                        <Ionicons name="location-outline" size={18} color="#aaa" style={{ marginRight: 10 }} />
+                        <View>
+                          <Text style={{ color: 'white', fontWeight: 'bold' }}>{item.name}</Text>
+                          <Text style={{ color: '#888', fontSize: 12 }}>
+                            {item.admin1 ? `${item.admin1}, ` : ''}{item.country}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+
+              </View>
             </View>
           )}
 
@@ -334,14 +410,15 @@ const SignupPage = () => {
 
               <Text style={styles.inputLabel}>Main Goal</Text>
               <View style={styles.goalContainer}>
-                {['Perte de poids', 'Maintien', 'Prise de masse'].map((g) => (
+                {/* MODIFICATION ICI : On utilise les vraies valeurs de la BDD pour l'état */}
+                {['lose_weight', 'maintain_weight', 'gain_muscle'].map((g) => (
                   <TouchableOpacity 
                     key={g} 
                     style={[styles.goalButton, goal === g && styles.selectedGoalButton]} 
                     onPress={() => setGoal(g)}
                   >
                     <Text style={[styles.goalText, goal === g && styles.selectedGoalText]}>
-                      {g === 'Perte de poids' ? 'Weight Loss' : g === 'Maintien' ? 'Maintain' : 'Muscle Gain'}
+                      {g === 'lose_weight' ? 'Weight Loss' : g === 'maintain_weight' ? 'Maintain' : 'Muscle Gain'}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -410,6 +487,8 @@ const styles = StyleSheet.create({
   loginText: { color: '#FFFFFF', fontSize: 16 },
   loginLink: { color: '#3498DB', fontSize: 16, fontWeight: 'bold' },
   termsText: { color: '#8A8D91', fontSize: 14, textAlign: 'center', marginBottom: 20 },
+  cityDropdown: { backgroundColor: '#1E2C3D', borderRadius: 10, borderWidth: 1, borderColor: '#3498DB', maxHeight: 200, marginBottom: 20, overflow: 'hidden' },
+  cityResultItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: '#2A4562' },
 });
 
 export default SignupPage;

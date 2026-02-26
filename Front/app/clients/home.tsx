@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { 
   StyleSheet, Text, View, TouchableOpacity, TouchableWithoutFeedback, 
   ScrollView, Image, TextInput, Modal, Keyboard, 
@@ -10,14 +10,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import axios from 'axios';
 import Constants from 'expo-constants';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router'; // <-- Ajout de useRouter
 
 import { getUserDetails, getToken } from '@/services/authStorage';
 import MealCard from '@/components/MealCard';
 
 const { width, height } = Dimensions.get('window');
 
-// --- COMPOSANT IMAGE UTILITAIRE ---
 const FoodImage = ({ uri, style, iconSize = 24 }: any) => {
   const hasValidImage = uri && uri !== '' && uri !== 'null';
   if (hasValidImage) {
@@ -33,6 +32,7 @@ const FoodImage = ({ uri, style, iconSize = 24 }: any) => {
 
 const HomeScreen = () => {
   const insets = useSafeAreaInsets();
+  const router = useRouter(); // <-- Initialisation du router
   const API_URL = Constants.expoConfig?.extra?.API_URL ?? '';
 
   // --- STATE DASHBOARD ---
@@ -58,7 +58,7 @@ const HomeScreen = () => {
   const [selectedFoods, setSelectedFoods] = useState<any[]>([]);
   const [editingId, setEditingId] = useState(null);
   const [loadingSearch, setLoadingSearch] = useState(false);
-  const [savingMeal, setSavingMeal] = useState(false); // État pour le chargement lors de la sauvegarde
+  const [savingMeal, setSavingMeal] = useState(false);
 
   // --- STATE CAMERA ---
   const [permission, requestPermission] = useCameraPermissions();
@@ -69,13 +69,13 @@ const HomeScreen = () => {
   // --- STATE VIEW / DETAIL ---
   const [isViewModalVisible, setIsViewModalVisible] = useState(false);
   const [mealToView, setMealToView] = useState<any>(null);
-  
-  // Modale de détail (Grammage) après scan
   const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
   const [selectedFood, setSelectedFood] = useState<any>(null);
   const [nutriments, setNutriments] = useState<any>(null);
   const [grammage, setGrammage] = useState('');
 
+  // --- STATE INVITATIONS ---
+  const [invitations, setInvitations] = useState([]);
 
   // --- 1. INITIALISATION ---
   useFocusEffect(
@@ -83,6 +83,23 @@ const HomeScreen = () => {
         loadData();
     }, [])
   );
+
+  const fetchInvitations = async () => {
+    try {
+        const token = await getToken();
+        if (!token) return;
+        const response = await axios.get(`${API_URL}/clients/me/invitations`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        setInvitations(response.data.invitations || []);
+    } catch (error) {
+        console.log("Error fetching invitations:", error);
+    }
+  };
+
+  useEffect(() => {
+      fetchInvitations();
+  }, []);
 
   const loadData = async () => {
     setLoadingStats(true);
@@ -152,17 +169,13 @@ const HomeScreen = () => {
   };
 
   // --- 3. ACTIONS CREATION REPAS & LOGIQUE DYNAMIQUE ---
-
-  // Recalcul dynamique des macros totales du repas
   const totalMealMacros = useMemo(() => {
     return selectedFoods.reduce((acc, item) => {
       const weight = parseFloat(item.weight) || 0;
       const ratio = weight / 100;
 
-      // Fonction utilitaire pour récupérer une macro de base (per 100g) de manière sécurisée
       const getBaseMacro = (key: string, fallbackKey?: string) => {
           if (item.baseMacros && item.baseMacros[key] !== undefined) return parseFloat(item.baseMacros[key]);
-          // Fallback pour les anciens repas stockés sans baseMacros : on tente de rétro-calculer
           const currentMacroVal = parseFloat(item.macros?.[key] || (fallbackKey ? item.macros?.[fallbackKey] : 0) || 0);
           const currentWeightRatio = (parseFloat(item.weight) || 100) / 100;
           return currentWeightRatio > 0 ? currentMacroVal / currentWeightRatio : 0;
@@ -173,7 +186,6 @@ const HomeScreen = () => {
         proteins: acc.proteins + (getBaseMacro('proteins') * ratio),
         carbs: acc.carbs + (getBaseMacro('carbohydrates') * ratio),
         fats: acc.lipids + (getBaseMacro('lipids') * ratio),
-        // On garde les autres totaux pour la sauvegarde en BDD
         sugars: acc.sugars + (getBaseMacro('sugars') * ratio),
         saturated_fats: acc.saturated_fats + (getBaseMacro('saturated_fats') * ratio),
         fibers: acc.fibers + (getBaseMacro('fibers') * ratio),
@@ -182,10 +194,8 @@ const HomeScreen = () => {
     }, { calories: 0, proteins: 0, carbs: 0, fats: 0, sugars: 0, saturated_fats: 0, fibers: 0, salt: 0 });
   }, [selectedFoods]);
 
-  // Mise à jour du poids d'un aliment dans la liste
   const updateFoodWeight = (index: number, newWeightStr: string) => {
       const updatedFoods = [...selectedFoods];
-      // On garde la valeur en string pour l'input, mais on s'assure qu'elle est numérique pour les calculs
       updatedFoods[index] = { ...updatedFoods[index], weight: newWeightStr };
       setSelectedFoods(updatedFoods);
   };
@@ -224,7 +234,6 @@ const HomeScreen = () => {
       const weightNum = parseFloat(searchWeight);
       const ratio = weightNum / 100;
 
-      // On stocke les macros de base pour 100g pour permettre le recalcul dynamique
       const baseMacros = {
           energy: parseFloat(foodDetails.energy) / ratio || 0,
           proteins: parseFloat(foodDetails.proteins) / ratio || 0,
@@ -237,13 +246,12 @@ const HomeScreen = () => {
       };
 
       const newItem = {
-        id: Date.now() + Math.random(), // ID unique pour la clé React
+        id: Date.now() + Math.random(),
         name: item.name, 
         image: item.image, 
-        weight: searchWeight, // Stocké en string pour le TextInput
+        weight: searchWeight,
         code: item.code,
         baseMacros: baseMacros,
-        // On garde 'macros' pour la compatibilité ascendante si besoin, calculé sur le poids initial
         macros: {
           energy: foodDetails.energy, proteins: foodDetails.proteins, carbohydrates: foodDetails.carbohydrates, 
           sugars: foodDetails.sugars, lipids: foodDetails.lipids, saturated_fats: foodDetails.saturated_fats,
@@ -271,16 +279,13 @@ const HomeScreen = () => {
     }
     setSavingMeal(true);
 
-    // Préparation de la liste finale des aliments avec leurs macros calculées selon le poids final
     const finalAliments = selectedFoods.map(item => {
         const weightNum = parseFloat(item.weight) || 0;
         const ratio = weightNum / 100;
         
-        // Utilitaire pour calculer la macro finale
         const calcMacro = (key: string, fallbackKey?: string) => {
              let base = item.baseMacros?.[key];
              if (base === undefined) {
-                 // Fallback rétro-calcul
                  const originalWeightRatio = (parseFloat(item.weight) || 100) / 100;
                  base = (parseFloat(item.macros?.[key] || item.macros?.[fallbackKey] || 0) / originalWeightRatio) || 0;
              }
@@ -306,7 +311,6 @@ const HomeScreen = () => {
     const mealData = {
       name: mealName,
       hourtime: getLocalISOString(date),
-      // Utilisation des totaux dynamiques calculés par useMemo
       total_calories: totalMealMacros.calories,
       total_proteins: totalMealMacros.proteins,
       total_carbohydrates: totalMealMacros.carbs,
@@ -316,7 +320,7 @@ const HomeScreen = () => {
       total_fiber: totalMealMacros.fibers,
       total_salt: totalMealMacros.salt,
       aliments: finalAliments,
-      is_consumed: editingId ? undefined : false // On ne reset pas is_consumed si on édite
+      is_consumed: editingId ? undefined : false
     };
 
     try {
@@ -341,12 +345,10 @@ const HomeScreen = () => {
     setDate(new Date(meal.hourtime)); 
     
     let foods = typeof meal.aliments === 'string' ? JSON.parse(meal.aliments) : meal.aliments;
-    // S'assurer que les aliments chargés ont des IDs uniques et un poids en string pour l'UI
     foods = foods.map((f: any) => ({
         ...f,
         id: f.id || Date.now() + Math.random(),
-        weight: String(f.weight || 100), // Convertir en string pour le TextInput
-        // Note: si baseMacros n'existe pas, les calculs utiliseront le fallback
+        weight: String(f.weight || 100), 
     }));
 
     setSelectedFoods(foods);
@@ -435,7 +437,6 @@ const HomeScreen = () => {
     }
     const ratio = g / 100;
 
-    // Création des baseMacros pour le recalcul dynamique
     const baseMacros = {
         energy: parseFloat(nutriments.energy) || 0,
         proteins: parseFloat(nutriments.proteins) || 0,
@@ -450,7 +451,7 @@ const HomeScreen = () => {
     const newItem = { 
         id: Date.now() + Math.random(),
         ...selectedFood, 
-        weight: String(g), // En string pour l'UI
+        weight: String(g), 
         baseMacros: baseMacros,
         macros: {
             energy: (nutriments.energy * ratio).toFixed(1),
@@ -468,7 +469,6 @@ const HomeScreen = () => {
     setTimeout(() => setIsModalVisible(true), 300);
   };
 
-  // --- UTILS ---
   const resetForm = () => {
     setMealName(''); setSearch(''); setSearchWeight(''); setSelectedFoods([]); setResults([]);
     setDate(new Date()); setShowPicker(false); setLoadingSearch(false); setEditingId(null); setSavingMeal(false);
@@ -479,7 +479,6 @@ const HomeScreen = () => {
     return new Date(date.getTime() - offset).toISOString().slice(0, -1);
   };
   const formatTime = (date: Date) => date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-
 
   const ProgressBar = ({ label, current, total, color }: any) => {
     const target = total || (label === 'Proteins' ? 150 : label === 'Carbs' ? 250 : 70);
@@ -530,6 +529,43 @@ const HomeScreen = () => {
           </View>
       )}
 
+      {/* 📩 BLOC DES INVITATIONS REÇUES (CARROUSEL HORIZONTAL) */}
+      {invitations.length > 0 && (
+        <View style={styles.invitationContainer}>
+          <Text style={styles.invitationTitle}>New Coaching Requests ({invitations.length})</Text>
+          <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 10, paddingRight: 20 }}
+          >
+            {invitations.map((inv: any) => (
+              <TouchableOpacity 
+                key={inv.id} 
+                style={styles.invitationCardHorizontal}
+                onPress={() => router.push({
+                  pathname: "/clients/coach-public-profile",
+                  params: { coachId: inv.coach_id, invitationId: inv.id }
+                })}
+              >
+                <View style={styles.miniAvatar}>
+                  <Text style={styles.miniAvatarText}>{inv.coach_firstname ? inv.coach_firstname[0] : '?'}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.invitationText} numberOfLines={1}>
+                    <Text style={{ fontWeight: 'bold' }}>{inv.coach_firstname} {inv.coach_lastname}</Text>
+                  </Text>
+                  <Text style={styles.coachCityText}>
+                      <Ionicons name="location" size={12} color="#8A8D91" /> {inv.coach_city || 'Remote'}
+                  </Text>
+                  <Text style={styles.viewProfileLink}>Tap to view profile & accept</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#3498DB" />
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
       {/* MEALS LIST */}
       <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginVertical: 10}}>
           <Text style={styles.catalogueTitle}>Today's Meals</Text>
@@ -548,7 +584,7 @@ const HomeScreen = () => {
       </TouchableOpacity>
 
 
-      {/* --- NOUVELLE MODALE : CREATE/EDIT MEAL (DESIGN ADVANCED) --- */}
+      {/* --- NOUVELLE MODALE : CREATE/EDIT MEAL --- */}
       <Modal visible={isModalVisible} animationType="slide" transparent onRequestClose={handleCloseModal}>
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={Keyboard.dismiss}>
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ width: '100%', alignItems:'center' }}>
@@ -556,7 +592,6 @@ const HomeScreen = () => {
             <View style={styles.mealModalContent}>
                 <Text style={styles.modalTitle}>{editingId ? "Edit Meal" : "Create Meal"}</Text>
                 
-                {/* Header Inputs: Time & Name */}
                 <View style={{flexDirection: 'row', gap: 10, marginBottom: 15}}>
                     <View style={{flex: 1}}>
                          <Text style={styles.inputLabelModal}>Time</Text>
@@ -573,7 +608,6 @@ const HomeScreen = () => {
                  {showPicker && <DateTimePicker value={date} mode="time" display="spinner" onChange={(e,d) => {setShowPicker(Platform.OS==='ios'); if(d) setDate(d);}} themeVariant="dark" />}
 
 
-                {/* Search Row */}
                 <Text style={styles.inputLabelModal}>Add Food (Enter Weight first!)</Text>
                 <View style={styles.searchRowNew}>
                     <TextInput 
@@ -600,7 +634,6 @@ const HomeScreen = () => {
                     </TouchableOpacity>
                 </View>
                 
-                {/* Results Box */}
                 {results.length > 0 && (
                     <View style={styles.resultsBoxNew}>
                         <ScrollView nestedScrollEnabled keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
@@ -615,7 +648,6 @@ const HomeScreen = () => {
                     </View>
                 )}
 
-                {/* Selected Foods List with Inline Editing */}
                 <View style={styles.fixedListContainerNew}>
                     <Text style={[styles.inputLabelModal, {marginBottom: 5}]}>Selected Items ({selectedFoods.length})</Text>
                     {selectedFoods.length === 0 ? (
@@ -626,12 +658,10 @@ const HomeScreen = () => {
                     ) : (
                         <ScrollView nestedScrollEnabled style={{width: '100%'}} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
                             {selectedFoods.map((item, index) => {
-                                 // Calcul dynamique des kcal pour l'affichage sur la ligne
                                  const weightNum = parseFloat(item.weight) || 0;
                                  const ratio = weightNum / 100;
                                  let baseEnergy = item.baseMacros?.energy;
                                  if (baseEnergy === undefined) {
-                                     // Fallback si pas de baseMacros
                                      const originalWeightRatio = (parseFloat(item.weight) || 100) / 100;
                                      baseEnergy = (parseFloat(item.macros?.energy || 0) / originalWeightRatio) || 0;
                                  }
@@ -643,7 +673,6 @@ const HomeScreen = () => {
                                     <View style={styles.selectedFoodInfoNew}>
                                         <Text style={styles.selectedFoodNameNew} numberOfLines={1}>{item.name}</Text>
                                         <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 4}}>
-                                            {/* Inline Weight Input */}
                                             <TextInput 
                                                 style={styles.amountInputNew} 
                                                 keyboardType="numeric" 
@@ -664,7 +693,6 @@ const HomeScreen = () => {
                     )}
                 </View>
 
-                {/* Macro Summary Box */}
                 <View style={styles.summaryBoxNew}>
                     <Text style={styles.summaryTitleNew}>Total: {totalMealMacros.calories.toFixed(0)} kcal</Text>
                     <Text style={styles.summaryTextNew}>P: {totalMealMacros.proteins.toFixed(1)}g | C: {totalMealMacros.carbs.toFixed(1)}g | F: {totalMealMacros.fats.toFixed(1)}g</Text>
@@ -689,7 +717,7 @@ const HomeScreen = () => {
         </TouchableOpacity>
       </Modal>
 
-      {/* --- CAMERA (OVERLAY CORRIGÉ) --- */}
+      {/* --- CAMERA (OVERLAY) --- */}
       <Modal visible={isCameraOpen} animationType="slide">
         <View style={{ flex: 1, backgroundColor: 'black' }}>
             <CameraView 
@@ -825,28 +853,74 @@ const styles = StyleSheet.create({
   macroLabel: { color: '#ccc', fontSize: 10 },
   catalogueTitle: { color: '#FFFFFF', fontSize: 18, fontWeight: 'bold' },
   mealsContainer: { flex: 1 },
+
+  // --- STYLES INVITATIONS (HOME) ---
+  invitationContainer: {
+    marginVertical: 10,
+  },
+  invitationTitle: {
+    color: '#8A8D91',
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  invitationCardHorizontal: {
+    backgroundColor: '#232D3F', 
+    borderRadius: 16,
+    padding: 15,
+    borderLeftWidth: 4,
+    borderLeftColor: '#f1c40f',
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: 280, 
+    marginRight: 15,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  miniAvatar: {
+    width: 45,
+    height: 45,
+    borderRadius: 22.5,
+    backgroundColor: '#3498DB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  miniAvatarText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 18,
+  },
+  invitationText: {
+    color: 'white',
+    fontSize: 14,
+  },
+  coachCityText: {
+    color: '#8A8D91',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  viewProfileLink: {
+    color: '#f1c40f',
+    fontSize: 12,
+    marginTop: 4,
+    fontWeight: 'bold',
+  },
   
   // SHARED UI
   addButton: { position: 'absolute', bottom: 20, right: 20, backgroundColor: '#3498DB', width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', elevation: 5 },
   modalBackground: { flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "center", alignItems: "center" },
   modalContainer: { width: "90%", backgroundColor: "#2A4562", borderRadius: 15, padding: 20, maxHeight: '90%' }, 
-  // modalTitle: { color: 'white', fontSize: 20, fontWeight: 'bold', marginBottom: 15, textAlign:'center' },
   textInput: { backgroundColor: '#1A1F2B', color: 'white', padding: 12, borderRadius: 8 },
   closeButton: { backgroundColor: '#e74c3c', padding: 12, borderRadius: 10, alignItems: 'center', marginTop: 10, width:'100%' },
   createButton: { backgroundColor: '#3498DB', padding: 15, borderRadius: 10, alignItems: 'center', width:'100%' },
   modalAddButton: { backgroundColor: '#2ecc71', padding: 12, borderRadius: 8, alignItems: 'center', minWidth: 80 },
   
-  // OLD MEAL FORM STYLES (Keep for View/Goal Modals)
-  // rowContainer: { flexDirection: 'row', gap: 10 },
-  // timeContainer: { flex: 1 }, nameContainer: { flex: 2 },
-  // label: { color: '#ccc', fontSize: 12, marginBottom: 5 },
-  // timeButton: { backgroundColor: '#1A1F2B', padding: 12, borderRadius: 8, alignItems: 'center' },
-  // timeText: { color: '#3498DB', fontWeight: 'bold' },
-  // searchRow: { flexDirection: 'row', marginTop: 5, alignItems: 'center' },
-  // searchInput: { backgroundColor: '#1A1F2B', color: 'white', padding: 10, borderRadius: 8 },
-  // searchButton: { backgroundColor: '#3498DB', padding: 10, borderRadius: 8, marginLeft: 8 },
-  
-  // OLD LISTS & RESULTS (Keep for View Modal)
   resultItem: { flexDirection: 'row', alignItems: 'center', padding: 10, borderBottomWidth:1, borderBottomColor:'#333' },
   resultImage: { width: 40, height: 40, borderRadius: 20, marginRight: 10 },
   resultText: { color: 'white', fontWeight: 'bold', flex: 1 },
@@ -863,7 +937,7 @@ const styles = StyleSheet.create({
   closeCameraButton: { position: 'absolute', bottom: 50, alignSelf:'center', backgroundColor:'white', width:60, height:60, borderRadius:30, justifyContent:'center', alignItems:'center' },
 
   // ============================================================
-  // NOUVEAUX STYLES "ADVANCED MEAL BUILDER" (Design Coach adapté)
+  // NOUVEAUX STYLES "ADVANCED MEAL BUILDER" 
   // ============================================================
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', padding: 20 },
   mealModalContent: { backgroundColor: '#1A1F2B', borderRadius: 15, padding: 20, borderWidth: 1, borderColor: '#2ecc71', maxHeight: '90%', width: '100%' },

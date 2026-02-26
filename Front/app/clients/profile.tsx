@@ -94,11 +94,12 @@ const ProfileScreen = () => {
       <View style={styles.card}>
         <View style={styles.goalItem}>
             <View style={styles.iconCircle}>
-                <Ionicons name="trophy-outline" size={20} color="#f1c40f" />
+                <Ionicons name="bullseye" size={24} color="#3498DB" />
             </View>
             <View style={{ marginLeft: 15 }}>
-                <Text style={styles.goalText}>{user?.goal || "No goal set yet"}</Text>
                 <Text style={styles.goalSub}>Primary objective</Text>
+                {/* Remplace 'goal' par le nom exact de ta variable si c'est différent (ex: main_goal) */}
+                <Text style={styles.goalText}>{user?.goal || "Not specified"}</Text>
             </View>
         </View>
       </View>

@@ -2,10 +2,48 @@ from sqlalchemy import Column, Integer, Float, String, ForeignKey, DateTime, Enu
 from app.database import Base
 from sqlalchemy.orm import relationship
 from passlib.context import CryptContext
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from typing import List, Optional, Dict
 from datetime import datetime
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+class CoachInvitation(Base):
+    __tablename__ = 'coach_invitations'
+
+    id = Column(Integer, primary_key=True, index=True)
+    coach_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    client_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    
+    status = Column(Enum('pending', 'accepted', 'rejected', name='invitation_status_enum'), default='pending', nullable=False)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    coach = relationship("Users", foreign_keys=[coach_id], backref="sent_invitations")
+    client = relationship("Users", foreign_keys=[client_id], backref="received_invitations")
+
+class InvitationCreate(BaseModel):
+    unique_code: str
+
+class InvitationUpdate(BaseModel):
+    status: str
+
+class InvitationRead(BaseModel):
+    id: int
+    coach_id: int
+    client_id: int
+    status: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class InvitationWithCoachInfo(BaseModel):
+    id: int
+    status: str
+    created_at: datetime
+    coach_id: int
+    coach_firstname: str
+    coach_lastname: str
 
 class Exercice(Base):
     __tablename__ = 'exercice'
@@ -119,6 +157,7 @@ class Users(Base):
     role = Column(Enum('admin', 'client', 'coach', name='role_enum'), nullable=False)
     nationality = Column(String(15), nullable=True)
     language = Column(String(15), nullable=True)
+    description = Column(Text, nullable=True)
     
     unique_code = Column(String(10), unique=True, nullable=True)
 
@@ -151,6 +190,20 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str
     role: str
+    
+    city: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    weight: Optional[float] = None
+    height: Optional[float] = None
+    goal: Optional[str] = None
+
+class UserUpdate(BaseModel):
+    firstname: Optional[str] = None
+    lastname: Optional[str] = None
+    email: Optional[EmailStr] = None
+    password: Optional[str] = None
+    description: Optional[str] = Field(None, max_length=150)
     
     city: Optional[str] = None
     latitude: Optional[float] = None
@@ -239,7 +292,11 @@ class MacroUpdate(BaseModel):
     goal_fats: Optional[float] = None
 
 __all__ = [
+    "CoachInvitation",
+    "InvitationCreate",
+    "InvitationUpdate",
     "Users",
+    "UserUpdate",
     "UserCreate",
     "Meal",
     "Training",

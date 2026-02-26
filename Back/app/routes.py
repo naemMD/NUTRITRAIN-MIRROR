@@ -30,7 +30,6 @@ async def get_current_user_id(token: str = Depends(oauth2_scheme)):
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid authentication credentials")
 
-
 @router.post("/coaches/clients/{client_id}/workouts/create", status_code=201)
 async def create_workout_for_client_route(
     client_id: int,
@@ -38,6 +37,26 @@ async def create_workout_for_client_route(
     session: AsyncSession = Depends(get_session)
 ):
     return await create_full_workout(session, client_id, workout_data)
+
+@router.patch("/users/me/description")
+async def update_my_description(
+    update_data: UserUpdate,
+    current_user_id: int = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_session)
+):
+    result = await session.execute(select(Users).where(Users.id == current_user_id))
+    user = result.scalars().first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    user.description = update_data.description
+    
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+    
+    return {"message": "Description updated successfully", "description": user.description}
 
 @router.get("/users/me/dashboard-stats")
 async def get_dashboard_stats(
@@ -663,3 +682,216 @@ async def search_coaches(
         }
         for coach in coaches
     ]
+
+@router.post("/coaches/invite-client")
+async def invite_client_by_code(
+    invitation_data: InvitationCreate,
+    user_id: int = Depends(get_current_user_id), # <-- CORRIGÉ ICI
+    session: AsyncSession = Depends(get_session)
+):
+    current_coach_id = user_id
+    coach_req = await session.execute(select(Users).where(Users.id == current_coach_id))
+    coach = coach_req.scalars().first()
+    if not coach or coach.role != 'coach':
+        raise HTTPException(status_code=403, detail="Only coaches can invite clients.")
+
+    client_req = await session.execute(select(Users).where(Users.unique_code == invitation_data.unique_code))
+    client = client_req.scalars().first()
+    
+    if not client:
+        raise HTTPException(status_code=404, detail="Invalid code. No user found.")
+    if client.id == current_coach_id:
+        raise HTTPException(status_code=400, detail="You cannot invite yourself.")
+    if client.coach_id == current_coach_id:
+        raise HTTPException(status_code=400, detail="This client is already part of your team.")
+
+    existing_invitation_req = await session.execute(
+        select(CoachInvitation).where(
+            and_(
+                CoachInvitation.coach_id == current_coach_id,
+                CoachInvitation.client_id == client.id,
+                CoachInvitation.status == 'pending'
+            )
+        )
+    )
+    if existing_invitation_req.scalars().first():
+        raise HTTPException(status_code=400, detail="An invitation is already pending for this client.")
+
+    new_invitation = CoachInvitation(
+        coach_id=current_coach_id,
+        client_id=client.id,
+        status='pending'
+    )
+    session.add(new_invitation)
+    await session.commit()
+
+    return {"message": "Invitation sent to the client successfully!"}
+
+@router.get("/clients/me/invitations")
+async def get_my_invitations(
+    user_id: int = Depends(get_current_user_id), # <-- CORRIGÉ ICI
+    session: AsyncSession = Depends(get_session)
+):
+    stmt = select(CoachInvitation, Users).join(
+        Users, CoachInvitation.coach_id == Users.id
+    ).where(
+        and_(
+            CoachInvitation.client_id == user_id,
+            CoachInvitation.status == 'pending'
+        )
+    )
+    
+    result = await session.execute(stmt)
+    invitations = result.all()
+
+    formatted_invitations = []
+    for inv, coach in invitations:
+        formatted_invitations.append({
+            "id": inv.id,
+            "status": inv.status,
+            "created_at": str(inv.created_at),
+            "coach_id": coach.id,
+            "coach_firstname": coach.firstname,
+            "coach_lastname": coach.lastname,
+            "coach_avatar": coach.firstname[0] if coach.firstname else "?"
+        })
+
+    return {"invitations": formatted_invitations}
+
+@router.delete("/coaches/invitations/{invitation_id}")
+async def delete_invitation(
+    invitation_id: int,
+    user_id: int = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_session)
+):
+    inv_req = await session.execute(
+        select(CoachInvitation).where(
+            and_(
+                CoachInvitation.id == invitation_id,
+                CoachInvitation.coach_id == user_id
+            )
+        )
+    )
+    invitation = inv_req.scalars().first()
+
+    if not invitation:
+        raise HTTPException(status_code=404, detail="Invitation not found or already processed.")
+
+    await session.delete(invitation)
+    await session.commit()
+
+    return {"message": "Invitation successfully deleted."}
+
+@router.patch("/clients/invitations/{invitation_id}")
+async def respond_to_invitation(
+    invitation_id: int,
+    response_data: InvitationUpdate,
+    user_id: int = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_session)
+):
+    current_client_id = user_id
+    if response_data.status not in ['accepted', 'rejected']:
+        raise HTTPException(status_code=400, detail="Status must be 'accepted' or 'rejected'.")
+
+    inv_req = await session.execute(
+        select(CoachInvitation).where(
+            and_(
+                CoachInvitation.id == invitation_id,
+                CoachInvitation.client_id == current_client_id,
+                CoachInvitation.status == 'pending'
+            )
+        )
+    )
+    invitation = inv_req.scalars().first()
+
+    if not invitation:
+        raise HTTPException(status_code=404, detail="Invitation not found or already processed.")
+
+    invitation.status = response_data.status
+
+    if response_data.status == 'accepted':
+        client_req = await session.execute(select(Users).where(Users.id == current_client_id))
+        client = client_req.scalars().first()
+        client.coach_id = invitation.coach_id
+        session.add(client)
+        
+        await session.execute(
+            update(CoachInvitation)
+            .where(
+                and_(
+                    CoachInvitation.client_id == current_client_id,
+                    CoachInvitation.status == 'pending',
+                    CoachInvitation.id != invitation_id
+                )
+            )
+            .values(status='rejected')
+        )
+
+    session.add(invitation)
+    await session.commit()
+
+    action = "accepted" if response_data.status == 'accepted' else "rejected"
+    return {"message": f"Invitation successfully {action}."}
+
+@router.get("/coaches/me/sent-invitations")
+async def get_sent_invitations(
+    user_id: int = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_session)
+):
+    current_coach_id = user_id
+    stmt = select(CoachInvitation, Users).join(
+        Users, CoachInvitation.client_id == Users.id
+    ).where(CoachInvitation.coach_id == current_coach_id)
+    
+    result = await session.execute(stmt)
+    invitations = result.all()
+
+    return [
+        {
+            "id": inv.id,
+            "status": inv.status,
+            "created_at": str(inv.created_at),
+            "client_name": f"{client.firstname} {client.lastname}",
+            "client_email": client.email
+        }
+        for inv, client in invitations if inv.status != 'accepted'
+    ]
+
+@router.get("/coaches/{coach_id}/public-profile")
+async def get_coach_public_profile(
+    coach_id: int,
+    session: AsyncSession = Depends(get_session)
+):
+    coach_req = await session.execute(
+        select(Users).where(
+            and_(
+                Users.id == coach_id, 
+                func.lower(Users.role) == 'coach'
+            )
+        )
+    )
+    coach = coach_req.scalars().first()
+    
+    if not coach:
+        raise HTTPException(status_code=404, detail="Coach not found.")
+
+    clients_req = await session.execute(select(func.count(Users.id)).where(Users.coach_id == coach_id))
+    active_clients = clients_req.scalar() or 0
+
+    return {
+        "id": coach.id,
+        "firstname": coach.firstname,
+        "lastname": coach.lastname,
+        "description": coach.description,
+        "city": coach.city,
+        "stats": {
+            "active_clients": active_clients,
+            "workouts_created": 154,
+            "forum_posts": 28
+        },
+        "certifications": [
+            "NASM Certified Personal Trainer",
+            "Precision Nutrition Level 1",
+            "CrossFit Level 2 Instructor"
+        ]
+    }

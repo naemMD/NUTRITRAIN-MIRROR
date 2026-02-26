@@ -34,6 +34,10 @@ async def get_user_by_id(session: AsyncSession, user_id):
             "language": user.language,
             "coach_id": user.coach_id,
             "unique_code": user.unique_code,
+            "description": user.description,
+            "city": user.city,
+            "height": user.height,
+            "weight": user.weight,
             "created_at": str(user.created_at)
         }
     )
@@ -64,8 +68,15 @@ async def register_user(session: AsyncSession, user_data: dict):
         nationality=user_data.get("nationality"),
         language=user_data.get("language"),
         coach_id=user_data.get("coach_id"),
+        height=user_data.get("height"),
+        weight=user_data.get("weight"),
         unique_code=generated_code
     )
+
+    if (new_user.role == 'coach'):
+            new_user.city = user_data.get("city")
+            new_user.latitude = user_data.get("latitude")
+            new_user.longitude = user_data.get("longitude")
 
     new_user.password = user_data["password"]
 

@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import axios from 'axios';
 import Constants from 'expo-constants';
 import { getUserDetails, getToken } from '@/services/authStorage';
@@ -10,43 +10,56 @@ import * as Clipboard from 'expo-clipboard';
 
 const CoachScreen = () => {
   const insets = useSafeAreaInsets();
-  const navigation = useRouter();
+  const router = useRouter();
   const API_URL = Constants.expoConfig?.extra?.API_URL ?? '';
 
   const [user, setUser] = useState<any>(null);
   const [myCoach, setMyCoach] = useState<any>(null);
+  const [invitations, setInvitations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        const session = await getUserDetails();
-        
-        if (session?.id) {
-           const userRes = await axios.get(`${API_URL}/users/me/${session.id}`);
-           const userData = userRes.data;
-           setUser(userData);
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const session = await getUserDetails();
+      const token = await getToken();
+      
+      if (session?.id && token) {
+         const userRes = await axios.get(`${API_URL}/users/me/${session.id}`);
+         const userData = userRes.data;
+         setUser(userData);
 
-           if (userData.coach_id) {
-               try {
-                   const coachRes = await axios.get(`${API_URL}/users/me/${userData.coach_id}`);
-                   setMyCoach(coachRes.data);
-               } catch (e) {
-                   console.error("Could not fetch coach details", e);
-               }
-           } else {
-               setMyCoach(null);
-           }
-        }
-      } catch (error) {
-        console.error("Erreur chargement:", error);
-      } finally {
-        setLoading(false);
+         if (userData.coach_id) {
+             try {
+                 const coachRes = await axios.get(`${API_URL}/users/me/${userData.coach_id}`);
+                 setMyCoach(coachRes.data);
+             } catch (e) {
+                 console.error("Could not fetch coach details", e);
+             }
+         } else {
+             setMyCoach(null);
+             try {
+                 const invRes = await axios.get(`${API_URL}/clients/me/invitations`, {
+                     headers: { Authorization: `Bearer ${token}` }
+                 });
+                 setInvitations(invRes.data.invitations || []);
+             } catch (e) {
+                 console.error("Could not fetch invitations", e);
+             }
+         }
       }
-    };
-    loadData();
-  }, []);
+    } catch (error) {
+      console.error("Erreur chargement:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [])
+  );
 
   const handleCopyCode = async () => {
       if (user?.unique_code) {
@@ -66,7 +79,6 @@ const CoachScreen = () => {
                   style: "destructive",
                   onPress: async () => {
                       try {
-                          // Récupération du vrai token brut via la fonction dédiée
                           const token = await getToken();
 
                           if (!token) {
@@ -74,7 +86,6 @@ const CoachScreen = () => {
                               return;
                           }
 
-                          // Appel avec le token dans les headers
                           await axios.delete(`${API_URL}/users/me/coach`, {
                               headers: {
                                   Authorization: `Bearer ${token}`
@@ -83,6 +94,7 @@ const CoachScreen = () => {
                           
                           Alert.alert("Success", "You have left your coach.");
                           setMyCoach(null); 
+                          loadData(); 
                           
                       } catch (error: any) {
                           console.error("Error leaving coach:", error);
@@ -104,6 +116,7 @@ const CoachScreen = () => {
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
             {myCoach ? (
                 <>
+                    {/* --- VUE AVEC COACH ACTIF --- */}
                     <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Your Coach</Text>
                     <View style={styles.coachCardContainer}>
                         <View style={styles.coachCard}>
@@ -130,6 +143,48 @@ const CoachScreen = () => {
                 </>
             ) : (
                 <View style={styles.noCoachContainer}>
+                    
+                    {/* --- CARROUSEL HORIZONTAL DES INVITATIONS --- */}
+                    {invitations.length > 0 && (
+                        <View style={styles.invitationsSection}>
+                            <Text style={styles.invitationsHeader}>Pending Requests ({invitations.length})</Text>
+                            <ScrollView 
+                                horizontal 
+                                showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={{ paddingRight: 20, paddingBottom: 10 }}
+                            >
+                                {invitations.map((inv) => (
+                                    <TouchableOpacity 
+                                        key={inv.id} 
+                                        style={styles.invitationCardHorizontal}
+                                        onPress={() => router.push({
+                                            pathname: "/clients/coach-public-profile",
+                                            params: { coachId: inv.coach_id, invitationId: inv.id }
+                                        })}
+                                    >
+                                        <View style={styles.miniAvatar}>
+                                            <Text style={styles.miniAvatarText}>{inv.coach_firstname?.[0] || '?'}</Text>
+                                        </View>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={styles.invitationText} numberOfLines={1}>
+                                                <Text style={{ fontWeight: 'bold' }}>{inv.coach_firstname} {inv.coach_lastname}</Text>
+                                            </Text>
+                                            <Text style={styles.coachCityText}>
+                                                <Ionicons name="location" size={12} color="#8A8D91" /> {inv.coach_city || 'Remote'}
+                                            </Text>
+                                            <Text style={styles.viewProfileLink}>Tap to view profile</Text>
+                                        </View>
+                                        <Ionicons name="chevron-forward" size={20} color="#3498DB" />
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                        </View>
+                    )}
+
+                    {/* DÉMARCATION VISUELLE (visible uniquement s'il y a des invitations) */}
+                    {invitations.length > 0 && <View style={styles.separator} />}
+
+                    {/* --- VUE STANDARD SANS COACH (CODE UNIQUE) --- */}
                     <Ionicons name="people-circle-outline" size={80} color="#3498DB" style={{marginBottom: 20}} />
                     
                     <Text style={styles.noCoachTitle}>You don't have a coach yet</Text>
@@ -165,17 +220,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#1A1F2B',
-    paddingHorizontal: 16,
   },
   sectionTitle: {
       color: 'white',
       fontSize: 20,
       fontWeight: 'bold',
-      marginBottom: 15
+      marginBottom: 15,
+      paddingHorizontal: 16
   },
-  // Coach Card
   coachCardContainer: {
     marginBottom: 20,
+    paddingHorizontal: 16
   },
   coachCard: {
     backgroundColor: '#2A4562',
@@ -222,6 +277,7 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     marginBottom: 20,
     alignItems: 'center',
+    marginHorizontal: 16
   },
   changeCoachText: {
     fontWeight: 'bold',
@@ -234,35 +290,36 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     marginBottom: 20,
     alignItems: 'center',
+    marginHorizontal: 16
   },
   aiCoachText: {
     fontWeight: 'bold',
     color: '#FFFFFF',
     fontSize: 16,
   },
-  // NO COACH STYLES
   noCoachContainer: {
       alignItems: 'center',
       justifyContent: 'center',
-      marginTop: 40,
-      paddingHorizontal: 20
+      marginTop: 20,
   },
   noCoachTitle: {
       color: 'white',
       fontSize: 24,
       fontWeight: 'bold',
       marginBottom: 10,
-      textAlign: 'center'
+      textAlign: 'center',
+      paddingHorizontal: 20
   },
   noCoachText: {
       color: '#aaa',
       fontSize: 16,
       textAlign: 'center',
-      marginBottom: 30
+      marginBottom: 30,
+      paddingHorizontal: 20
   },
   codeCard: {
       backgroundColor: '#2A4562',
-      width: '100%',
+      width: '90%',
       padding: 20,
       borderRadius: 15,
       alignItems: 'center',
@@ -301,7 +358,9 @@ const styles = StyleSheet.create({
       backgroundColor: 'rgba(255, 255, 255, 0.05)',
       padding: 15,
       borderRadius: 10,
-      alignItems: 'center'
+      alignItems: 'center',
+      marginBottom: 20,
+      width: '90%'
   },
   infoText: {
       color: '#888',
@@ -309,6 +368,71 @@ const styles = StyleSheet.create({
       flex: 1,
       fontSize: 14,
       lineHeight: 20
+  },
+  invitationsSection: {
+      width: '100%',
+      marginBottom: 30,
+      paddingLeft: 16, 
+  },
+  invitationsHeader: {
+      color: '#8A8D91',
+      fontSize: 14,
+      fontWeight: 'bold',
+      marginBottom: 10,
+      textTransform: 'uppercase',
+      letterSpacing: 1,
+  },
+  invitationCardHorizontal: {
+      backgroundColor: '#232D3F',
+      borderRadius: 16,
+      padding: 15,
+      borderLeftWidth: 4,
+      borderLeftColor: '#f1c40f',
+      flexDirection: 'row',
+      alignItems: 'center',
+      width: 280, 
+      marginRight: 15,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+      elevation: 3,
+  },
+  miniAvatar: {
+      width: 45,
+      height: 45,
+      borderRadius: 22.5,
+      backgroundColor: '#3498DB',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 15,
+  },
+  miniAvatarText: {
+      color: 'white',
+      fontWeight: 'bold',
+      fontSize: 20,
+  },
+  invitationText: {
+      color: 'white',
+      fontSize: 14,
+  },
+  coachCityText: {
+      color: '#8A8D91',
+      fontSize: 12,
+      marginTop: 2,
+  },
+  viewProfileLink: {
+      color: '#f1c40f',
+      fontSize: 12,
+      marginTop: 4,
+      fontWeight: 'bold',
+  },
+  separator: {
+      height: 1,
+      backgroundColor: '#2A4562',
+      width: '85%',
+      alignSelf: 'center',
+      marginBottom: 30,
   }
 });
 
