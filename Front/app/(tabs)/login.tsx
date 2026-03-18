@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { crossAlert } from '@/services/crossAlert';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -79,7 +80,7 @@ const LoginPage = () => {
       console.error('Login error:', err);
       setError('Connection error. Please check your network and try again.');
       
-      Alert.alert(
+      crossAlert(
         'Erreur lors de la connexion', 
         `Unable to connect to the server. Error: ${err.detail}`,
         [{ text: 'OK' }]
@@ -93,9 +94,9 @@ const LoginPage = () => {
     try {
       const response = await fetch(`${API_URL}/`);
       const data = await response.json();
-      Alert.alert('Server Connection', `Server responded: ${JSON.stringify(data)}`);
+      crossAlert('Server Connection', `Server responded: ${JSON.stringify(data)}`);
     } catch (err) {
-      Alert.alert('Connection Error', `Could not connect to server: ${err.message}`);
+      crossAlert('Connection Error', `Could not connect to server: ${err.message}`);
     }
   };
 

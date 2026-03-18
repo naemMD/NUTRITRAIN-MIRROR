@@ -1,1 +1,18 @@
-{}
+{
+  "expo": {
+    "name": "NutriTrain",
+    "slug": "nutritrain",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "web": {
+      "favicon": "./assets/images/favicon.png",
+      "shortName": "NutriTrain",
+      "name": "NutriTrain App",
+      "themeColor": "#1A1F2B",
+      "backgroundColor": "#1A1F2B",
+      "display": "standalone",
+      "orientation": "portrait" 
+    }
+  }
+}

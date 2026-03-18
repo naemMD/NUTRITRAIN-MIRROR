@@ -1,11 +1,11 @@
 import React, { useState, useRef } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
 import Toast from 'react-native-toast-message';
-import * as Location from 'expo-location';
+import { getCurrentLocation, requestLocationPermission } from '@/services/crossLocation';
 import axios from 'axios';
 
 // 🔥 IMPORT DÉCOMMENTÉ : Indispensable pour l'auto-login
@@ -165,11 +165,13 @@ const SignupPage = () => {
     let currentLon = null;
 
     try {
-        let { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === 'granted') {
-            let location = await Location.getCurrentPositionAsync({});
-            currentLat = location.coords.latitude;
-            currentLon = location.coords.longitude;
+        const granted = await requestLocationPermission();
+        if (granted) {
+            const location = await getCurrentLocation();
+            if (location) {
+                currentLat = location.latitude;
+                currentLon = location.longitude;
+            }
         } else {
             console.log("Permission GPS refusée, utilisation des coordonnées de la ville choisie.");
             if (selectedCity) {

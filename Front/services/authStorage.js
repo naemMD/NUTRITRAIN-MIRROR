@@ -1,47 +1,50 @@
-import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import { jwtDecode } from "jwt-decode";
 import Constants from 'expo-constants';
 import axios from 'axios';
 
+let SecureStore = null;
+if (Platform.OS !== 'web') {
+  SecureStore = require('expo-secure-store');
+}
+
 const API_URL = Constants.expoConfig?.extra?.API_URL ?? '';
 const TOKEN_KEY = 'authToken';
-const isWeb = typeof window !== 'undefined' && Platform.OS === 'web';
 
-const setStorageItem = async (key, value) => {
-  if (isWeb) {
-    localStorage.setItem(key, value);
-  } else {
-    await SecureStore.setItemAsync(key, value);
-  }
-};
-
-const getStorageItem = async (key) => {
-  if (isWeb) {
+// Cross-platform storage helpers
+const storageGet = async (key) => {
+  if (Platform.OS === 'web') {
     return localStorage.getItem(key);
-  } else {
-    return await SecureStore.getItemAsync(key);
   }
+  return await SecureStore.getItemAsync(key);
 };
 
-const removeStorageItem = async (key) => {
-  if (isWeb) {
-    localStorage.removeItem(key);
-  } else {
-    await SecureStore.deleteItemAsync(key);
+const storageSet = async (key, value) => {
+  if (Platform.OS === 'web') {
+    localStorage.setItem(key, value);
+    return;
   }
+  await SecureStore.setItemAsync(key, value);
+};
+
+const storageDelete = async (key) => {
+  if (Platform.OS === 'web') {
+    localStorage.removeItem(key);
+    return;
+  }
+  await SecureStore.deleteItemAsync(key);
 };
 
 export const getUserDetails = async () => {
   try {
-    const token = await getStorageItem(TOKEN_KEY);
+    const token = await storageGet(TOKEN_KEY);
     if (!token) return null;
-  
+
     const decoded = jwtDecode(token);
     const userId = decoded.userId;
     const response = await axios.get(`${API_URL}/users/me/${userId}`);
 
-    if (response.status === 200 || response.data) {
+    if (response.status_code !== 200) {
       console.log('User details fetched successfully');
       return response.data;
     } else {
@@ -57,7 +60,7 @@ export const getUserDetails = async () => {
 
 export const getToken = async () => {
   try {
-    const token = await getStorageItem(TOKEN_KEY);
+    const token = await storageGet(TOKEN_KEY);
     return token;
   } catch (error) {
     console.log('Error retrieving token:', error);
@@ -67,7 +70,7 @@ export const getToken = async () => {
 
 export const saveSession = async (token) => {
   try {
-    await setStorageItem(TOKEN_KEY, token);
+    await storageSet(TOKEN_KEY, token);
     console.log('Token saved successfully');
   } catch (error) {
     console.log('Error saving token:', error);
@@ -77,7 +80,7 @@ export const saveSession = async (token) => {
 export const clearSession = async () => {
   console.log('Deleting session...');
   try {
-    await removeStorageItem(TOKEN_KEY);
+    await storageDelete(TOKEN_KEY);
     console.log('Session deleted');
   } catch (error) {
     console.log('Error while deleting the session:', error);

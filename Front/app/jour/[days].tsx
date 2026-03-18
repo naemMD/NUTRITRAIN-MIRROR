@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 import { 
-  View, Text, StyleSheet, FlatList, ActivityIndicator, 
-  TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Alert
+  View, Text, StyleSheet, FlatList, ActivityIndicator,
+  TextInput, TouchableOpacity, KeyboardAvoidingView, Platform
 } from 'react-native';
+import { crossAlert } from '@/services/crossAlert';
 
 export default function ProgrammeJour() {
   const { days } = useLocalSearchParams();
@@ -93,13 +94,13 @@ export default function ProgrammeJour() {
         fetchExercicesByDay();
         
         // Afficher un message de succès
-        Alert.alert('Succès', `${data.exercice.nom} a été ajouté au programme du ${days}`);
+        crossAlert('Succès', `${data.exercice.nom} a été ajouté au programme du ${days}`);
       } else {
-        Alert.alert('Erreur', data.message || 'Erreur lors de l\'ajout de l\'exercice');
+        crossAlert('Erreur', data.message || 'Erreur lors de l\'ajout de l\'exercice');
       }
     } catch (err) {
       console.error('Erreur d\'ajout:', err);
-      Alert.alert('Erreur', 'Impossible d\'ajouter l\'exercice');
+      crossAlert('Erreur', 'Impossible d\'ajouter l\'exercice');
     } finally {
       setAddingExercice(false);
     }

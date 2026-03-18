@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Switch, Alert } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Switch } from 'react-native';
+import { crossAlert } from '@/services/crossAlert';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { clearSession } from '@/services/authStorage';
@@ -16,7 +17,7 @@ const SettingsPage = () => {
   const [healthSync, setHealthSync] = useState(false);
 
   const handleLogout = () => {
-    Alert.alert("Log Out", "Are you sure you want to log out?", [
+    crossAlert("Log Out", "Are you sure you want to log out?", [
       { text: "Cancel", style: "cancel" },
       { text: "Log Out", style: "destructive", onPress: async () => {
           await clearSession();

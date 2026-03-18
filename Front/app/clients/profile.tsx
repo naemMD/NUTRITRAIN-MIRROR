@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import axios from 'axios';
 import Constants from 'expo-constants';
-import * as Clipboard from 'expo-clipboard';
 import { getUserDetails } from '@/services/authStorage';
+import { crossAlert } from '@/services/crossAlert';
+import { copyToClipboard } from '@/services/crossClipboard';
 
 const ProfileScreen = () => {
   const insets = useSafeAreaInsets();
@@ -39,10 +40,10 @@ const ProfileScreen = () => {
     loadData();
   }, []);
 
-  const copyToClipboard = async () => {
+  const handleCopy = async () => {
       if (user?.unique_code) {
-          await Clipboard.setStringAsync(user.unique_code);
-          Alert.alert("Copied!", "Your identification code is ready to be sent to your coach.");
+          await copyToClipboard(user.unique_code);
+          crossAlert("Copied!", "Your identification code is ready to be sent to your coach.");
       }
   };
 
@@ -82,7 +83,7 @@ const ProfileScreen = () => {
       <Text style={styles.sectionTitle}>Coaching Connection</Text>
       <View style={styles.card}>
         <Text style={styles.cardInfo}>Share this code with your coach to link your accounts:</Text>
-        <TouchableOpacity style={styles.codeContainer} onPress={copyToClipboard}>
+        <TouchableOpacity style={styles.codeContainer} onPress={handleCopy}>
             <View>
                 <Text style={styles.codeLabel}>My Unique Code</Text>
                 <Text style={styles.codeValue}>{user?.unique_code || "---"}</Text>

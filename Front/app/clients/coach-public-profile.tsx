@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { crossAlert } from '@/services/crossAlert';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'; // 🔥 Stack importé ici
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -74,7 +75,7 @@ const CoachPublicProfile = () => {
 
   const handleResponse = async (status: 'accepted' | 'rejected') => {
     if (status === 'rejected') {
-      Alert.alert(
+      crossAlert(
         "Decline Invitation",
         "Are you sure you want to decline this coaching request?",
         [
@@ -116,7 +117,7 @@ const CoachPublicProfile = () => {
 
   const handleRequestCoaching = async () => {
     if (hasCoach) {
-        Alert.alert(
+        crossAlert(
             "Action Impossible",
             "Vous avez déjà un coach. Vous devez d'abord vous désassigner de votre coach actuel dans votre profil avant d'envoyer une nouvelle demande.",
             [{ text: "Compris", style: "default" }]
@@ -153,7 +154,7 @@ const CoachPublicProfile = () => {
   const handleCancelRequest = () => {
     if (!pendingRequestId) return;
 
-    Alert.alert(
+    crossAlert(
       "Cancel Request",
       "Are you sure you want to cancel your request to this coach?",
       [

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { 
-  StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, 
-  Alert, KeyboardAvoidingView, Platform, ActivityIndicator, Modal, FlatList 
+import {
+  StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView,
+  KeyboardAvoidingView, Platform, ActivityIndicator, Modal, FlatList
 } from 'react-native';
+import { crossAlert } from '@/services/crossAlert';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -83,7 +84,7 @@ const CreateSessionScreen = () => {
   };
 
   const handleConfirmExercise = () => {
-    if (!selectedExoData) return Alert.alert('Error', 'Please select an exercise.');
+    if (!selectedExoData) return crossAlert('Error', 'Please select an exercise.');
     const newExo: LocalExercise = {
       id: Date.now(),
       name: selectedExoData.name,
@@ -99,7 +100,7 @@ const CreateSessionScreen = () => {
 
   const handleEditExercise = (exo: LocalExercise) => {
     if (selectedExoData) {
-        Alert.alert("Edition in progress", "Please confirm or cancel the current exercise before editing another one.");
+        crossAlert("Edition in progress", "Please confirm or cancel the current exercise before editing another one.");
         return;
     }
     setSelectedExoData({ name: exo.name, type: exo.type });
@@ -132,7 +133,7 @@ const CreateSessionScreen = () => {
 
   const handleSaveSession = async () => {
       if (!sessionName.trim() || exercises.length === 0) {
-          Alert.alert("Missing Info", "Name and Exercises required.");
+          crossAlert("Missing Info", "Name and Exercises required.");
           return;
       }
       setLoadingSave(true);
@@ -162,7 +163,7 @@ const CreateSessionScreen = () => {
           router.back();
       } catch (error: any) {
           if (error.response) console.log("ERR 422 DETAILS:", error.response.data.detail);
-          Alert.alert("Error", "Could not create workout.");
+          crossAlert("Error", "Could not create workout.");
       } finally {
           setLoadingSave(false);
       }
@@ -188,7 +189,22 @@ const CreateSessionScreen = () => {
                     <Ionicons name="calendar-outline" size={20} color="white" />
                     <Text style={styles.dateText}>{date.toLocaleDateString()} at {date.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</Text>
                 </TouchableOpacity>
-                {showDatePicker && <DateTimePicker value={date} mode="datetime" display="default" onChange={onDateChange} themeVariant="dark" />}
+                {showDatePicker && (
+                  Platform.OS === 'web' ? (
+                    <input
+                      type="datetime-local"
+                      value={`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}T${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}`}
+                      onChange={(e: any) => {
+                        const newDate = new Date(e.target.value);
+                        if (!isNaN(newDate.getTime())) setDate(newDate);
+                        setShowDatePicker(false);
+                      }}
+                      style={{ padding: 10, fontSize: 16, backgroundColor: '#2A4562', color: 'white', border: '1px solid #3498DB', borderRadius: 8, marginTop: 10 }}
+                    />
+                  ) : (
+                    <DateTimePicker value={date} mode="datetime" display="default" onChange={onDateChange} themeVariant="dark" />
+                  )
+                )}
             </View>
 
             {exercises.length > 0 && (

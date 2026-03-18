@@ -1,11 +1,12 @@
 import React, { useState, useCallback } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import axios from 'axios';
 import Constants from 'expo-constants';
 import { getUserDetails, getToken } from '@/services/authStorage';
-import * as Clipboard from 'expo-clipboard';
+import { copyToClipboard } from '@/services/crossClipboard';
+import { crossAlert } from '@/services/crossAlert';
 import { Toast } from 'react-native-toast-message/lib/src/Toast';
 
 const CoachScreen = () => {
@@ -68,13 +69,13 @@ const CoachScreen = () => {
 
   const handleCopyCode = async () => {
       if (user?.unique_code) {
-          await Clipboard.setStringAsync(user.unique_code);
+          await copyToClipboard(user.unique_code);
             Toast.show({ type: 'success', text1: 'Code copied to clipboard!' });
       }
   };
 
   const handleChangeCoach = () => {
-      Alert.alert(
+      crossAlert(
           "Leave Coach",
           "Do you really want to leave your coach?",
           [
@@ -91,7 +92,7 @@ const CoachScreen = () => {
                           setMyCoach(null); 
                           loadData(); 
                       } catch (error) {
-                          Alert.alert("Error", "Failed to leave coach.");
+                          crossAlert("Error", "Failed to leave coach.");
                       }
                   }
               }
@@ -100,7 +101,7 @@ const CoachScreen = () => {
   };
 
   const handleCancelRequest = (requestId: number) => {
-    Alert.alert(
+    crossAlert(
       "Cancel Request",
       "Are you sure you want to cancel your request to this coach?",
       [

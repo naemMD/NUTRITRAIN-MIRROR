@@ -1,9 +1,10 @@
 import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
-import { 
-  StyleSheet, Text, View, TouchableOpacity, TouchableWithoutFeedback, 
-  ScrollView, Image, TextInput, Modal, Keyboard, 
-  ActivityIndicator, StatusBar, Alert, Platform, Dimensions, KeyboardAvoidingView
+import {
+  StyleSheet, Text, View, TouchableOpacity, TouchableWithoutFeedback,
+  ScrollView, Image, TextInput, Modal, Keyboard,
+  ActivityIndicator, StatusBar, Platform, Dimensions, KeyboardAvoidingView
 } from 'react-native';
+import { crossAlert } from '@/services/crossAlert';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import axios from 'axios';
@@ -146,7 +147,7 @@ const HomeScreen = () => {
           });
           if (user) fetchDashboardStats(user.id);
       } catch (error) {
-          Alert.alert("Error", "Connection issue");
+          crossAlert("Error", "Connection issue");
       }
   };
 
@@ -160,7 +161,7 @@ const HomeScreen = () => {
         setIsGoalModalVisible(false);
         if (user) fetchDashboardStats(user.id);
     } catch (error) {
-        Alert.alert("Error", "Could not update goal");
+        crossAlert("Error", "Could not update goal");
     } finally {
         setUpdatingGoal(false);
     }
@@ -200,7 +201,7 @@ const HomeScreen = () => {
 
   const searchFood = async () => {
     if (!searchWeight || isNaN(parseFloat(searchWeight)) || parseFloat(searchWeight) <= 0) {
-      Alert.alert("Weight Missing", "Please enter a weight (grams) BEFORE searching.");
+      crossAlert("Weight Missing", "Please enter a weight (grams) BEFORE searching.");
       return; 
     }
     if (!search.trim()) return;
@@ -221,7 +222,7 @@ const HomeScreen = () => {
 
   const handleSelectFood = async (item: any) => {
     if (!searchWeight) {
-        Alert.alert("Error", "Weight is missing.");
+        crossAlert("Error", "Weight is missing.");
         return;
     }
 
@@ -261,7 +262,7 @@ const HomeScreen = () => {
       setResults([]); setSearch(''); setSearchWeight('');
 
     } catch (error) {
-      Alert.alert("Error", "Could not fetch food details.");
+      crossAlert("Error", "Could not fetch food details.");
     }
     setLoadingSearch(false);
   };
@@ -272,7 +273,7 @@ const HomeScreen = () => {
 
   const handleCreateMeal = async () => {
     if (!mealName.trim() || selectedFoods.length === 0) {
-      Alert.alert("Missing Info", "Please add a name and at least one food.");
+      crossAlert("Missing Info", "Please add a name and at least one food.");
       return;
     }
     setSavingMeal(true);
@@ -331,7 +332,7 @@ const HomeScreen = () => {
       handleCloseModal();
     } catch (error) {
       console.log("Error saving meal:", error);
-      Alert.alert("Error", "Could not save meal.");
+      crossAlert("Error", "Could not save meal.");
     } finally {
         setSavingMeal(false);
     }
@@ -362,7 +363,7 @@ const HomeScreen = () => {
 
   const handleDeleteMeal = async () => {
     if (!editingId) return;
-    Alert.alert("Delete Meal", "Are you sure?", [
+    crossAlert("Delete Meal", "Are you sure?", [
         { text: "Cancel", style: "cancel" },
         { text: "Delete", style: "destructive", onPress: async () => {
             try {
@@ -381,7 +382,7 @@ const HomeScreen = () => {
     if (!permission?.granted) {
       const { granted } = await requestPermission();
       if (!granted) {
-        Alert.alert("Permission required", "Camera access is needed.");
+        crossAlert("Permission required", "Camera access is needed.");
         return;
       }
     }
@@ -418,7 +419,7 @@ const HomeScreen = () => {
           }, 300);
 
       } catch (error) {
-          Alert.alert("Not Found", "Product not found. Try manual search.");
+          crossAlert("Not Found", "Product not found. Try manual search.");
           setIsCameraOpen(false);
           setTimeout(() => setIsModalVisible(true), 300);
       } finally {
@@ -430,7 +431,7 @@ const HomeScreen = () => {
     if (!nutriments) return;
     const g = parseFloat(grammage);
     if (isNaN(g) || g <= 0) {
-        Alert.alert("Invalid Weight");
+        crossAlert("Invalid Weight");
         return;
     }
     const ratio = g / 100;
@@ -599,7 +600,24 @@ const HomeScreen = () => {
                         <TextInput style={styles.inputModal} placeholder="e.g. Lunch" placeholderTextColor="#888" value={mealName} onChangeText={setMealName} />
                     </View>
                 </View>
-                 {showPicker && <DateTimePicker value={date} mode="time" display="spinner" onChange={(e,d) => {setShowPicker(Platform.OS==='ios'); if(d) setDate(d);}} themeVariant="dark" />}
+                 {showPicker && (
+                   Platform.OS === 'web' ? (
+                     <input
+                       type="time"
+                       value={`${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}`}
+                       onChange={(e) => {
+                         const [h, m] = e.target.value.split(':');
+                         const newDate = new Date(date);
+                         newDate.setHours(parseInt(h), parseInt(m));
+                         setDate(newDate);
+                         setShowPicker(false);
+                       }}
+                       style={{ padding: 10, fontSize: 16, backgroundColor: '#2A4562', color: 'white', border: '1px solid #3498DB', borderRadius: 8 }}
+                     />
+                   ) : (
+                     <DateTimePicker value={date} mode="time" display="spinner" onChange={(e,d) => {setShowPicker(Platform.OS==='ios'); if(d) setDate(d);}} themeVariant="dark" />
+                   )
+                 )}
 
 
                 <Text style={styles.inputLabelModal}>Add Food (Enter Weight first!)</Text>
@@ -713,36 +731,57 @@ const HomeScreen = () => {
 
       <Modal visible={isCameraOpen} animationType="slide">
         <View style={{ flex: 1, backgroundColor: 'black' }}>
-            <CameraView 
-                style={StyleSheet.absoluteFillObject} 
-                facing="back" 
-                onBarcodeScanned={scanned ? undefined : handleBarCodeScanned} 
-            />
-            <View style={styles.overlay}>
-                <View style={styles.layerTop} />
-                <View style={styles.layerCenter}>
-                    <View style={styles.layerLeft} />
-                    <View style={styles.focused}>
-                        <View style={[styles.corner, {top:0, left:0, borderTopWidth:3, borderLeftWidth:3}]} />
-                        <View style={[styles.corner, {top:0, right:0, borderTopWidth:3, borderRightWidth:3}]} />
-                        <View style={[styles.corner, {bottom:0, left:0, borderBottomWidth:3, borderLeftWidth:3}]} />
-                        <View style={[styles.corner, {bottom:0, right:0, borderBottomWidth:3, borderRightWidth:3}]} />
+            {Platform.OS === 'web' ? (
+              <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+                <Text style={{ color: 'white', marginBottom: 10, fontSize: 16 }}>Camera not available on web. Enter barcode manually:</Text>
+                <TextInput
+                  style={{ backgroundColor: '#2A4562', color: 'white', padding: 15, borderRadius: 10, width: '100%', textAlign: 'center' }}
+                  placeholder="Enter barcode number..."
+                  placeholderTextColor="#888"
+                  keyboardType="numeric"
+                  onSubmitEditing={(e) => handleBarCodeScanned({ type: 'manual', data: e.nativeEvent.text })}
+                />
+                <TouchableOpacity
+                  style={{ marginTop: 20, backgroundColor: '#e74c3c', padding: 15, borderRadius: 10 }}
+                  onPress={() => { setIsCameraOpen(false); setIsModalVisible(true); }}
+                >
+                  <Text style={{ color: 'white', fontWeight: 'bold' }}>Close</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <>
+                <CameraView
+                    style={StyleSheet.absoluteFillObject}
+                    facing="back"
+                    onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+                />
+                <View style={styles.overlay}>
+                    <View style={styles.layerTop} />
+                    <View style={styles.layerCenter}>
+                        <View style={styles.layerLeft} />
+                        <View style={styles.focused}>
+                            <View style={[styles.corner, {top:0, left:0, borderTopWidth:3, borderLeftWidth:3}]} />
+                            <View style={[styles.corner, {top:0, right:0, borderTopWidth:3, borderRightWidth:3}]} />
+                            <View style={[styles.corner, {bottom:0, left:0, borderBottomWidth:3, borderLeftWidth:3}]} />
+                            <View style={[styles.corner, {bottom:0, right:0, borderBottomWidth:3, borderRightWidth:3}]} />
+                        </View>
+                        <View style={styles.layerRight} />
                     </View>
-                    <View style={styles.layerRight} />
+                    <View style={styles.layerBottom} />
                 </View>
-                <View style={styles.layerBottom} />
-            </View>
-            <View style={{position:'absolute', top: 60, width:'100%', alignItems:'center'}}>
-                <Text style={{color:'white', fontSize: 18, fontWeight:'bold', textShadowColor:'black', textShadowRadius:5}}>
-                    Scan Barcode
-                </Text>
-            </View>
-            <TouchableOpacity 
-                style={styles.closeCameraButton} 
-                onPress={() => { setIsCameraOpen(false); setIsModalVisible(true); }}
-            >
-                <Ionicons name="close" size={32} color="black" />
-            </TouchableOpacity>
+                <View style={{position:'absolute', top: 60, width:'100%', alignItems:'center'}}>
+                    <Text style={{color:'white', fontSize: 18, fontWeight:'bold', textShadowColor:'black', textShadowRadius:5}}>
+                        Scan Barcode
+                    </Text>
+                </View>
+                <TouchableOpacity
+                    style={styles.closeCameraButton}
+                    onPress={() => { setIsCameraOpen(false); setIsModalVisible(true); }}
+                >
+                    <Ionicons name="close" size={32} color="black" />
+                </TouchableOpacity>
+              </>
+            )}
         </View>
       </Modal>
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { 
-  StyleSheet, Text, View, TouchableOpacity, ScrollView, 
-  ActivityIndicator, Alert, Dimensions, Modal, TextInput, 
+import {
+  StyleSheet, Text, View, TouchableOpacity, ScrollView,
+  ActivityIndicator, Dimensions, Modal, TextInput,
   KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Image
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,6 +10,7 @@ import axios from 'axios';
 import Constants from 'expo-constants';
 import Toast from 'react-native-toast-message';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { crossAlert } from '@/services/crossAlert';
 
 import { getUniqueMuscles, getExercisesByMuscle } from '@/constants/exercisesData';
 import { getToken } from '@/services/authStorage';
@@ -86,6 +87,9 @@ const ClientDetailsScreen = () => {
   const [scanned, setScanned] = useState(false);
   const isProcessingScan = useRef(false);
   
+  // --- WEB MANUAL BARCODE STATE ---
+  const [manualBarcode, setManualBarcode] = useState('');
+
   // --- SCANNER DETAIL MODAL STATES ---
   const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
   const [scannedFood, setScannedFood] = useState<any>(null);
@@ -108,7 +112,7 @@ const ClientDetailsScreen = () => {
       }
     } catch (error) {
       console.error(error);
-      Alert.alert("Error", "Could not fetch client details.");
+      crossAlert("Error", "Could not fetch client details.");
     } finally {
       setLoading(false);
     }
@@ -207,7 +211,7 @@ const ClientDetailsScreen = () => {
 
   const searchFoodApi = async () => {
     if (!foodSearchWeight || isNaN(parseFloat(foodSearchWeight)) || parseFloat(foodSearchWeight) <= 0) {
-      Alert.alert("Weight Missing", "Please enter a weight (grams) BEFORE searching.");
+      crossAlert("Weight Missing", "Please enter a weight (grams) BEFORE searching.");
       return; 
     }
     if (!foodSearchQuery.trim()) return;
@@ -228,7 +232,7 @@ const ClientDetailsScreen = () => {
 
   const handleSelectFoodResult = async (item: any) => {
     if (!foodSearchWeight) {
-        Alert.alert("Error", "Weight is missing.");
+        crossAlert("Error", "Weight is missing.");
         return;
     }
 
@@ -258,7 +262,7 @@ const ClientDetailsScreen = () => {
       setFoodSearchQuery(''); 
       setFoodSearchWeight('');
     } catch (error) {
-      Alert.alert("Error", "Could not fetch food details.");
+      crossAlert("Error", "Could not fetch food details.");
     }
     setSearchingFood(false);
   };
@@ -286,7 +290,7 @@ const ClientDetailsScreen = () => {
 
   const handleSaveMeal = async () => {
     if (!mealName.trim() || selectedFoods.length === 0) {
-        return Alert.alert("Error", "Please provide a name and add at least one food item.");
+        return crossAlert("Error", "Please provide a name and add at least one food item.");
     }
     setSavingMeal(true);
     try {
@@ -330,7 +334,7 @@ const ClientDetailsScreen = () => {
   };
 
   const handleDeleteMeal = async (id: number) => {
-    Alert.alert("Delete Meal", "Are you sure you want to delete this meal?", [
+    crossAlert("Delete Meal", "Are you sure you want to delete this meal?", [
         { text: "Cancel", style: "cancel" },
         { text: "Delete", style: "destructive", onPress: async () => {
             const token = await getToken();
@@ -342,16 +346,23 @@ const ClientDetailsScreen = () => {
   };
 
   const openCameraModal = async () => {
+    if (Platform.OS === 'web') {
+      isProcessingScan.current = false;
+      setScanned(false);
+      setIsMealModalVisible(false);
+      setTimeout(() => { setIsCameraOpen(true); }, 400);
+      return;
+    }
     if (!permission?.granted) {
       const { granted } = await requestPermission();
       if (!granted) {
-        Alert.alert("Permission Required", "Camera access is needed to scan barcodes.");
+        crossAlert("Permission Required", "Camera access is needed to scan barcodes.");
         return;
       }
     }
     isProcessingScan.current = false;
     setScanned(false);
-    
+
     setIsMealModalVisible(false);
     setTimeout(() => { setIsCameraOpen(true); }, 400);
   };
@@ -377,7 +388,7 @@ const ClientDetailsScreen = () => {
           setTimeout(() => { setIsDetailModalVisible(true); }, 400);
 
       } catch (error) {
-          Alert.alert("Not Found", "Product not found. Try manual search.");
+          crossAlert("Not Found", "Product not found. Try manual search.");
           setIsCameraOpen(false);
           setTimeout(() => setIsMealModalVisible(true), 400);
       } finally {
@@ -389,7 +400,7 @@ const ClientDetailsScreen = () => {
     if (!scannedNutriments) return;
     const g = parseFloat(scanGrammage);
     if (isNaN(g) || g <= 0) {
-        Alert.alert("Invalid Weight", "Please enter a valid weight in grams.");
+        crossAlert("Invalid Weight", "Please enter a valid weight in grams.");
         return;
     }
     
@@ -426,7 +437,7 @@ const ClientDetailsScreen = () => {
   };
 
   const handleDeleteWorkout = async (id: number) => {
-    Alert.alert("Delete Workout", "Are you sure you want to delete this workout?", [
+    crossAlert("Delete Workout", "Are you sure you want to delete this workout?", [
       { text: "Cancel", style: "cancel" },
       { text: "Delete", style: "destructive", onPress: async () => {
           try {
@@ -434,7 +445,7 @@ const ClientDetailsScreen = () => {
             await axios.delete(`${API_URL}/coaches/workouts/${id}`, { headers: { Authorization: `Bearer ${token}` }});
             Toast.show({ type: 'success', text1: 'Workout deleted.' });
             loadData();
-          } catch (e) { Alert.alert("Error", "Could not delete workout"); }
+          } catch (e) { crossAlert("Error", "Could not delete workout"); }
       }}
     ]);
   };
@@ -456,7 +467,7 @@ const ClientDetailsScreen = () => {
   };
 
   const handleConfirmExercise = () => {
-    if (!selectedExoData) return Alert.alert('Error', 'Please select an exercise.');
+    if (!selectedExoData) return crossAlert('Error', 'Please select an exercise.');
     const formattedSets = currentSets.map((s, idx) => ({
       set_number: idx + 1,
       reps: selectedExoData.type === 'strength' ? (parseInt(s.reps) || 0) : 0,
@@ -480,7 +491,7 @@ const ClientDetailsScreen = () => {
   };
 
   const handleSaveWorkout = async () => {
-    if (!workoutName.trim()) return Alert.alert("Error", "Please provide a workout name.");
+    if (!workoutName.trim()) return crossAlert("Error", "Please provide a workout name.");
     setSavingWorkout(true);
     try {
       const token = await getToken();
@@ -781,33 +792,85 @@ const ClientDetailsScreen = () => {
 
       <Modal visible={isCameraOpen} animationType="slide">
         <View style={{ flex: 1, backgroundColor: 'black' }}>
-            <CameraView 
-                style={StyleSheet.absoluteFillObject} 
-                facing="back" 
-                onBarcodeScanned={scanned ? undefined : handleBarCodeScanned} 
-            />
-            <View style={styles.overlay}>
-                <View style={styles.layerTop} />
-                <View style={styles.layerCenter}>
-                    <View style={styles.layerLeft} />
-                    <View style={styles.focused}>
-                        <View style={[styles.corner, {top:0, left:0, borderTopWidth:3, borderLeftWidth:3}]} />
-                        <View style={[styles.corner, {top:0, right:0, borderTopWidth:3, borderRightWidth:3}]} />
-                        <View style={[styles.corner, {bottom:0, left:0, borderBottomWidth:3, borderLeftWidth:3}]} />
-                        <View style={[styles.corner, {bottom:0, right:0, borderBottomWidth:3, borderRightWidth:3}]} />
-                    </View>
-                    <View style={styles.layerRight} />
-                </View>
-                <View style={styles.layerBottom} />
-            </View>
-            <View style={{position:'absolute', top: 60, width:'100%', alignItems:'center'}}>
-                <Text style={{color:'white', fontSize: 18, fontWeight:'bold', textShadowColor:'black', textShadowRadius:5}}>
-                    Scan Barcode
+            {Platform.OS === 'web' ? (
+              <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30 }}>
+                <Text style={{ color: 'white', fontSize: 18, fontWeight: 'bold', marginBottom: 20 }}>
+                  Enter Barcode Manually
                 </Text>
-            </View>
-            <TouchableOpacity style={styles.closeCameraButton} onPress={() => { setIsCameraOpen(false); setIsMealModalVisible(true); }}>
-                <Ionicons name="close" size={32} color="black" />
-            </TouchableOpacity>
+                <TextInput
+                  style={{
+                    backgroundColor: '#2A4562',
+                    color: 'white',
+                    padding: 14,
+                    borderRadius: 8,
+                    fontSize: 18,
+                    width: '100%',
+                    maxWidth: 350,
+                    textAlign: 'center',
+                    marginBottom: 20,
+                  }}
+                  placeholder="Barcode number..."
+                  placeholderTextColor="#888"
+                  value={manualBarcode}
+                  onChangeText={setManualBarcode}
+                  keyboardType="numeric"
+                  autoFocus
+                  onSubmitEditing={() => {
+                    if (manualBarcode.trim()) {
+                      handleBarCodeScanned({ type: 'manual', data: manualBarcode.trim() });
+                      setManualBarcode('');
+                    }
+                  }}
+                />
+                <TouchableOpacity
+                  style={{ backgroundColor: '#3498DB', paddingVertical: 14, paddingHorizontal: 40, borderRadius: 8, marginBottom: 15 }}
+                  onPress={() => {
+                    if (manualBarcode.trim()) {
+                      handleBarCodeScanned({ type: 'manual', data: manualBarcode.trim() });
+                      setManualBarcode('');
+                    }
+                  }}
+                >
+                  <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>Search</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={{ backgroundColor: '#e74c3c', paddingVertical: 14, paddingHorizontal: 40, borderRadius: 8 }}
+                  onPress={() => { setIsCameraOpen(false); setIsMealModalVisible(true); setManualBarcode(''); }}
+                >
+                  <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>Close</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <>
+                <CameraView
+                    style={StyleSheet.absoluteFillObject}
+                    facing="back"
+                    onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+                />
+                <View style={styles.overlay}>
+                    <View style={styles.layerTop} />
+                    <View style={styles.layerCenter}>
+                        <View style={styles.layerLeft} />
+                        <View style={styles.focused}>
+                            <View style={[styles.corner, {top:0, left:0, borderTopWidth:3, borderLeftWidth:3}]} />
+                            <View style={[styles.corner, {top:0, right:0, borderTopWidth:3, borderRightWidth:3}]} />
+                            <View style={[styles.corner, {bottom:0, left:0, borderBottomWidth:3, borderLeftWidth:3}]} />
+                            <View style={[styles.corner, {bottom:0, right:0, borderBottomWidth:3, borderRightWidth:3}]} />
+                        </View>
+                        <View style={styles.layerRight} />
+                    </View>
+                    <View style={styles.layerBottom} />
+                </View>
+                <View style={{position:'absolute', top: 60, width:'100%', alignItems:'center'}}>
+                    <Text style={{color:'white', fontSize: 18, fontWeight:'bold', textShadowColor:'black', textShadowRadius:5}}>
+                        Scan Barcode
+                    </Text>
+                </View>
+                <TouchableOpacity style={styles.closeCameraButton} onPress={() => { setIsCameraOpen(false); setIsMealModalVisible(true); }}>
+                    <Ionicons name="close" size={32} color="black" />
+                </TouchableOpacity>
+              </>
+            )}
         </View>
       </Modal>
 

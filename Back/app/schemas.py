@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, Float, String, ForeignKey, DateTime, Enum, func, event, JSON, Boolean, Text, Any
+from sqlalchemy import Column, Integer, Float, String, ForeignKey, DateTime, Enum, func, event, JSON, Boolean, Text, Any, UniqueConstraint
 from app.database import Base
 from sqlalchemy.orm import relationship
 from passlib.context import CryptContext
@@ -350,6 +350,116 @@ class MacroUpdate(BaseModel):
     goal_carbs: Optional[float] = None
     goal_fats: Optional[float] = None
 
+
+# ---------------------------------------------------------------------------
+# Forums
+# ---------------------------------------------------------------------------
+
+class Forum(Base):
+    __tablename__ = "forums"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    title = Column(String(80), nullable=False)
+    description = Column(String(500), nullable=True)
+    status = Column(Enum('public', 'private', 'draft', name='forum_status_enum'), default='public', nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    last_activity_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    messages = relationship("ForumMessage", back_populates="forum", cascade="all, delete-orphan")
+    favorites = relationship("ForumFavorite", back_populates="forum", cascade="all, delete-orphan")
+
+
+class ForumMessage(Base):
+    __tablename__ = "forum_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    forum_id = Column(Integer, ForeignKey("forums.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    forum = relationship("Forum", back_populates="messages")
+
+
+class ForumFavorite(Base):
+    __tablename__ = "forum_favorites"
+    __table_args__ = (UniqueConstraint("user_id", "forum_id", name="uq_user_forum_favorite"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    forum_id = Column(Integer, ForeignKey("forums.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    forum = relationship("Forum", back_populates="favorites")
+
+
+class ForumCreate(BaseModel):
+    title: str = Field(..., max_length=80)
+    description: Optional[str] = Field(None, max_length=500)
+    status: str = "public"
+
+
+class ForumUpdate(BaseModel):
+    title: Optional[str] = Field(None, max_length=80)
+    description: Optional[str] = Field(None, max_length=500)
+    status: Optional[str] = None
+
+
+class ForumRead(BaseModel):
+    id: int
+    user_id: int
+    title: str
+    description: Optional[str] = None
+    status: str
+    created_at: datetime
+    last_activity_at: datetime
+    author_firstname: str
+    author_lastname: str
+    author_role: str
+    message_count: int
+    is_favorite: bool = False
+
+    class Config:
+        from_attributes = True
+
+
+class ForumMessageCreate(BaseModel):
+    content: str
+
+
+class ForumMessageRead(BaseModel):
+    id: int
+    forum_id: int
+    user_id: int
+    author_firstname: str
+    author_lastname: str
+    author_role: str
+    content: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ForumDetailRead(BaseModel):
+    id: int
+    user_id: int
+    title: str
+    description: Optional[str] = None
+    status: str
+    created_at: datetime
+    last_activity_at: datetime
+    author_firstname: str
+    author_lastname: str
+    author_role: str
+    is_favorite: bool = False
+    messages: List[ForumMessageRead] = []
+
+    class Config:
+        from_attributes = True
+
+
 __all__ = [
     "LocationUpdate",
     "CoachSearchResponse",
@@ -366,6 +476,7 @@ __all__ = [
     "UserUpdate",
     "UserCreate",
     "Meal",
+    "MealCreateByCoach",
     "Training",
     "Exercice",
     "Workout",
@@ -378,5 +489,14 @@ __all__ = [
     "MealRead",
     "UserGoalUpdate",
     "DashboardStats",
-    "MacroUpdate"
+    "MacroUpdate",
+    "Forum",
+    "ForumMessage",
+    "ForumFavorite",
+    "ForumCreate",
+    "ForumUpdate",
+    "ForumRead",
+    "ForumMessageCreate",
+    "ForumMessageRead",
+    "ForumDetailRead",
 ]

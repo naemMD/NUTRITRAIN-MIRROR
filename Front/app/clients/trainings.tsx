@@ -1,8 +1,9 @@
 import React, { useState, useCallback, useRef } from 'react';
-import { 
-  StyleSheet, Text, View, TouchableOpacity, FlatList, ActivityIndicator, 
-  Modal, ScrollView, Animated, PanResponder, Dimensions, Alert 
+import {
+  StyleSheet, Text, View, TouchableOpacity, FlatList, ActivityIndicator,
+  Modal, ScrollView, Animated, PanResponder, Dimensions
 } from 'react-native';
+import { crossAlert } from '@/services/crossAlert';
 import { useRouter, useFocusEffect } from 'expo-router';
 import axios from 'axios';
 import Constants from 'expo-constants';
@@ -109,12 +110,12 @@ const TrainingDashboard = () => {
       } catch (error) {
           console.error("Error toggling workout:", error);
           setWorkouts(previousWorkouts); 
-          Alert.alert("Error", "Could not update status.");
+          crossAlert("Error", "Could not update status.");
       }
   };
 
   const handleDeleteWorkout = async (workoutId: number) => {
-    Alert.alert(
+    crossAlert(
         "Delete Workout",
         "Are you sure you want to delete this session?",
         [
@@ -131,7 +132,7 @@ const TrainingDashboard = () => {
                         setDetailModalVisible(false);
                         fetchWorkouts();
                     } catch (error) {
-                        Alert.alert("Error", "Could not delete workout.");
+                        crossAlert("Error", "Could not delete workout.");
                     }
                 }
             }

@@ -5,8 +5,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import axios from 'axios';
 import Constants from 'expo-constants';
-import * as Location from 'expo-location';
 import { getToken, getUserDetails } from '@/services/authStorage';
+import { getCurrentLocation, requestLocationPermission } from '@/services/crossLocation';
 import Toast from 'react-native-toast-message';
 
 export default function SearchCoachScreen() {
@@ -43,28 +43,32 @@ export default function SearchCoachScreen() {
   const searchByLocation = async () => {
     setLoading(true);
     try {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
+      const granted = await requestLocationPermission();
+      if (!granted) {
         Toast.show({ type: 'error', text1: 'Permission Denied', text2: 'Location access is required to find nearby coaches.' });
         setLoading(false);
         return;
       }
 
-      let location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const location = await getCurrentLocation();
+      if (!location) {
+        Toast.show({ type: 'error', text1: 'Error', text2: 'Could not get your location.' });
+        setLoading(false);
+        return;
+      }
+
       const token = await getToken();
       const user = await getUserDetails();
-      
-      // 1. Fetch nearby coaches
-      const res = await axios.get(`${API_URL}/coaches/search?lat=${location.coords.latitude}&lon=${location.coords.longitude}`, {
+
+      const res = await axios.get(`${API_URL}/coaches/search?lat=${location.latitude}&lon=${location.longitude}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setCoaches(res.data);
 
-      // 2. Save location to database quietly in the background
       if (user?.id) {
           await axios.patch(`${API_URL}/users/me/location?current_user_id=${user.id}`, {
-              latitude: location.coords.latitude,
-              longitude: location.coords.longitude
+              latitude: location.latitude,
+              longitude: location.longitude
           }, {
               headers: { Authorization: `Bearer ${token}` }
           });

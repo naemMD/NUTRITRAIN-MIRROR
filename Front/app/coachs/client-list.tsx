@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Dimensions, FlatList, ActivityIndicator, Modal, TextInput, Alert, ScrollView } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Dimensions, FlatList, ActivityIndicator, Modal, TextInput, ScrollView } from 'react-native';
+import { crossAlert } from '@/services/crossAlert';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import axios from 'axios';
@@ -127,7 +128,7 @@ const CoachListScreen = () => {
   };
 
   const handleCancelInvitation = async (invitationId: number) => {
-    Alert.alert("Remove Invitation", "Are you sure you want to delete this request?", [
+    crossAlert("Remove Invitation", "Are you sure you want to delete this request?", [
         { text: "Cancel", style: "cancel" },
         { text: "Delete", style: "destructive", onPress: async () => {
             try {
@@ -145,7 +146,7 @@ const CoachListScreen = () => {
   };
 
   const handleRemoveClient = (clientId: number, clientName: string) => {
-      Alert.alert(
+      crossAlert(
           "Remove Client",
           `Are you sure you want to stop coaching ${clientName}? They will no longer see your training plans.`,
           [

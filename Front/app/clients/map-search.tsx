@@ -5,18 +5,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import axios from 'axios';
 import Constants from 'expo-constants';
-import * as Location from 'expo-location';
 import { getToken } from '@/services/authStorage';
+import { getCurrentLocation, requestLocationPermission } from '@/services/crossLocation';
 import Toast from 'react-native-toast-message';
-
-// 🔥 Chargement dynamique pour éviter l'erreur sur le Web (Vercel)
-let MapView: any, Marker: any, Callout: any;
-if (Platform.OS !== 'web') {
-  const Maps = require('react-native-maps');
-  MapView = Maps.default;
-  Marker = Maps.Marker;
-  Callout = Maps.Callout;
-}
+import { MapView, Marker, Callout, isMapAvailable } from '@/components/NativeMap';
 
 export default function MapSearchScreen() {
   const insets = useSafeAreaInsets();
@@ -35,16 +27,15 @@ export default function MapSearchScreen() {
   });
 
   useEffect(() => {
-    if (Platform.OS === 'web') return;
-
     (async () => {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
+      const granted = await requestLocationPermission();
+      if (!granted) return;
 
-      let location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const location = await getCurrentLocation();
+      if (!location) return;
       setRegion({
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
+        latitude: location.latitude,
+        longitude: location.longitude,
         latitudeDelta: 0.1,
         longitudeDelta: 0.1,
       });
@@ -88,7 +79,7 @@ export default function MapSearchScreen() {
     router.push({ pathname: '/clients/coach-public-profile', params: { coachId } });
   };
 
-  if (Platform.OS === 'web') {
+  if (!isMapAvailable) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
         <Ionicons name="map-outline" size={80} color="#3498DB" />
@@ -145,13 +136,14 @@ export default function MapSearchScreen() {
         </View>
       </View>
 
-      <TouchableOpacity 
+      <TouchableOpacity
         style={[styles.recenterButton, { bottom: Math.max(insets.bottom, 20) + 20 }]}
         onPress={async () => {
-            let location = await Location.getCurrentPositionAsync({});
+            const location = await getCurrentLocation();
+            if (!location) return;
             setRegion({
-                latitude: location.coords.latitude,
-                longitude: location.coords.longitude,
+                latitude: location.latitude,
+                longitude: location.longitude,
                 latitudeDelta: 0.1, longitudeDelta: 0.1,
             });
         }}

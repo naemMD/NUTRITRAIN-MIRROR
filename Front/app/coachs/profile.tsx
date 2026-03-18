@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, ActivityIndicator, Alert, TextInput } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, ActivityIndicator, TextInput } from 'react-native';
+import { crossAlert } from '@/services/crossAlert';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import axios from 'axios';
@@ -27,7 +28,7 @@ const CoachProfileScreen = () => {
           setDescription(response.data?.description || '');
         }
       } catch (error) {
-        Alert.alert("Error", "Could not load professional profile.");
+        crossAlert("Error", "Could not load professional profile.");
       } finally {
         setLoading(false);
       }
