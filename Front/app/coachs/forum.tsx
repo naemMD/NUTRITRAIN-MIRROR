@@ -6,14 +6,11 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import axios from 'axios';
-import Constants from 'expo-constants';
 import { getToken } from '@/services/authStorage';
 import { crossAlert } from '@/services/crossAlert';
 import { jwtDecode } from 'jwt-decode';
 import { Toast } from 'react-native-toast-message/lib/src/Toast';
-
-const API_URL = Constants.expoConfig?.extra?.API_URL ?? '';
+import api from '@/services/api';
 
 type Tab = 'all' | 'favorites' | 'mine';
 type ViewMode = 'list' | 'detail';
@@ -86,21 +83,15 @@ const ForumScreen = () => {
     } catch {}
   };
 
-  const authHeaders = async () => {
-    const token = await getToken();
-    return { Authorization: `Bearer ${token}` };
-  };
-
   const loadForums = async (p: number) => {
     setLoading(true);
     try {
-      const headers = await authHeaders();
       let url = '';
-      if (activeTab === 'all') url = `${API_URL}/forums?page=${p}&page_size=15`;
-      else if (activeTab === 'favorites') url = `${API_URL}/forums/favorites?page=${p}&page_size=15`;
-      else url = `${API_URL}/forums/my-forums?page=${p}&page_size=15`;
+      if (activeTab === 'all') url = `/forums?page=${p}&page_size=15`;
+      else if (activeTab === 'favorites') url = `/forums/favorites?page=${p}&page_size=15`;
+      else url = `/forums/my-forums?page=${p}&page_size=15`;
 
-      const res = await axios.get(url, { headers });
+      const res = await api.get(url);
       setForums(p === 1 ? res.data.forums : [...forums, ...res.data.forums]);
       setTotalPages(res.data.total_pages);
       setPage(p);
@@ -114,8 +105,7 @@ const ForumScreen = () => {
   const openForum = async (forumId: number) => {
     setLoadingDetail(true);
     try {
-      const headers = await authHeaders();
-      const res = await axios.get(`${API_URL}/forums/${forumId}`, { headers });
+      const res = await api.get(`/forums/${forumId}`);
       setCurrentForum(res.data);
       setView('detail');
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: false }), 200);
@@ -130,12 +120,11 @@ const ForumScreen = () => {
     if (!newTitle.trim()) return;
     setCreating(true);
     try {
-      const headers = await authHeaders();
-      await axios.post(`${API_URL}/forums`, {
+      await api.post(`/forums`, {
         title: newTitle.trim(),
         description: newDescription.trim() || null,
         status: newStatus,
-      }, { headers });
+      });
       setShowCreateModal(false);
       setNewTitle('');
       setNewDescription('');
@@ -161,12 +150,11 @@ const ForumScreen = () => {
     if (!editForum || !editTitle.trim()) return;
     setSaving(true);
     try {
-      const headers = await authHeaders();
-      await axios.patch(`${API_URL}/forums/${editForum.id}`, {
+      await api.patch(`/forums/${editForum.id}`, {
         title: editTitle.trim(),
         description: editDescription.trim() || null,
         status: editStatus,
-      }, { headers });
+      });
       setShowEditModal(false);
       Toast.show({ type: 'success', text1: 'Forum updated!' });
       loadForums(1);
@@ -183,8 +171,7 @@ const ForumScreen = () => {
       {
         text: 'Delete', style: 'destructive', onPress: async () => {
           try {
-            const headers = await authHeaders();
-            await axios.delete(`${API_URL}/forums/${forum.id}`, { headers });
+            await api.delete(`/forums/${forum.id}`);
             Toast.show({ type: 'success', text1: 'Forum deleted' });
             loadForums(1);
           } catch {
@@ -197,8 +184,7 @@ const ForumScreen = () => {
 
   const handleToggleFavorite = async (forum: any) => {
     try {
-      const headers = await authHeaders();
-      const res = await axios.post(`${API_URL}/forums/${forum.id}/favorite`, {}, { headers });
+      const res = await api.post(`/forums/${forum.id}/favorite`, {});
       setForums(prev => prev.map(f =>
         f.id === forum.id ? { ...f, is_favorite: res.data.is_favorite } : f
       ));
@@ -214,11 +200,9 @@ const ForumScreen = () => {
     if (!newMessage.trim() || !currentForum) return;
     setSendingMsg(true);
     try {
-      const headers = await authHeaders();
-      const res = await axios.post(
-        `${API_URL}/forums/${currentForum.id}/messages`,
-        { content: newMessage.trim() },
-        { headers }
+      const res = await api.post(
+        `/forums/${currentForum.id}/messages`,
+        { content: newMessage.trim() }
       );
       setCurrentForum((prev: any) => ({
         ...prev,
@@ -239,8 +223,7 @@ const ForumScreen = () => {
       {
         text: 'Delete', style: 'destructive', onPress: async () => {
           try {
-            const headers = await authHeaders();
-            await axios.delete(`${API_URL}/forums/${currentForum.id}/messages/${messageId}`, { headers });
+            await api.delete(`/forums/${currentForum.id}/messages/${messageId}`);
             setCurrentForum((prev: any) => ({
               ...prev,
               messages: prev.messages.filter((m: any) => m.id !== messageId),

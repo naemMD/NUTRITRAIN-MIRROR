@@ -3,17 +3,14 @@ import { StyleSheet, Text, View, TextInput, TouchableOpacity, FlatList, Activity
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import axios from 'axios';
-import Constants from 'expo-constants';
-import { getToken, getUserDetails } from '@/services/authStorage';
+import { getUserDetails } from '@/services/authStorage';
+import api from '@/services/api';
 import { getCurrentLocation, requestLocationPermission } from '@/services/crossLocation';
 import Toast from 'react-native-toast-message';
 
 export default function SearchCoachScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const API_URL = Constants.expoConfig?.extra?.API_URL ?? '';
-
   const [citySearch, setCitySearch] = useState('');
   const [coaches, setCoaches] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -26,10 +23,7 @@ export default function SearchCoachScreen() {
     setLoading(true);
     
     try {
-      const token = await getToken();
-      const res = await axios.get(`${API_URL}/coaches/search?city=${encodeURIComponent(citySearch)}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await api.get(`/coaches/search?city=${encodeURIComponent(citySearch)}`);
       setCoaches(res.data);
     } catch (error) {
       console.error("City search error:", error);
@@ -57,20 +51,15 @@ export default function SearchCoachScreen() {
         return;
       }
 
-      const token = await getToken();
       const user = await getUserDetails();
 
-      const res = await axios.get(`${API_URL}/coaches/search?lat=${location.latitude}&lon=${location.longitude}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await api.get(`/coaches/search?lat=${location.latitude}&lon=${location.longitude}`);
       setCoaches(res.data);
 
       if (user?.id) {
-          await axios.patch(`${API_URL}/users/me/location?current_user_id=${user.id}`, {
+          await api.patch(`/users/me/location?current_user_id=${user.id}`, {
               latitude: location.latitude,
               longitude: location.longitude
-          }, {
-              headers: { Authorization: `Bearer ${token}` }
           });
       }
 

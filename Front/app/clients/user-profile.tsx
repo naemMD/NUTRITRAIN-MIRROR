@@ -3,11 +3,8 @@ import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import axios from 'axios';
-import Constants from 'expo-constants';
 import { Toast } from 'react-native-toast-message/lib/src/Toast';
-
-const API_URL = Constants.expoConfig?.extra?.API_URL ?? '';
+import api from '@/services/api';
 
 const GOAL_LABELS: Record<string, string> = {
   lose_weight: 'Lose Weight',
@@ -33,7 +30,7 @@ const UserPublicProfile = () => {
 
   const fetchProfile = async () => {
     try {
-      const response = await axios.get(`${API_URL}/users/${userId}/public-profile`);
+      const response = await api.get(`/users/${userId}/public-profile`);
       setUser(response.data);
     } catch {
       Toast.show({ type: 'error', text1: 'Failed to load profile.' });

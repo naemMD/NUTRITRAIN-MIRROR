@@ -5,11 +5,9 @@ import {
 } from 'react-native';
 import { crossAlert } from '@/services/crossAlert';
 import { useRouter, useFocusEffect } from 'expo-router';
-import axios from 'axios';
-import Constants from 'expo-constants';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { Ionicons } from '@expo/vector-icons';
-import { getToken } from '@/services/authStorage';
+import api from '@/services/api';
 
 LocaleConfig.locales['en'] = {
   monthNames: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
@@ -25,7 +23,6 @@ const SHEET_MAX_Y = SCREEN_HEIGHT * 0.55;
 
 const TrainingDashboard = () => {
   const router = useRouter();
-  const API_URL = Constants.expoConfig?.extra?.API_URL ?? '';
 
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [workouts, setWorkouts] = useState<any[]>([]);
@@ -67,11 +64,7 @@ const TrainingDashboard = () => {
   const fetchWorkouts = async () => {
     setLoading(true);
     try {
-      const token = await getToken();
-      if (!token) return;
-      const res = await axios.get(`${API_URL}/workouts/my-workouts`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await api.get(`/workouts/my-workouts`);
       const allWorkouts = res.data;
       
       const sanitizedWorkouts = allWorkouts.map((w:any) => ({
@@ -103,10 +96,7 @@ const TrainingDashboard = () => {
       ));
 
       try {
-          const token = await getToken();
-          await axios.patch(`${API_URL}/workouts/${workoutId}/toggle-complete`, {}, {
-              headers: { Authorization: `Bearer ${token}` }
-          });
+          await api.patch(`/workouts/${workoutId}/toggle-complete`);
       } catch (error) {
           console.error("Error toggling workout:", error);
           setWorkouts(previousWorkouts); 
@@ -125,10 +115,7 @@ const TrainingDashboard = () => {
                 style: "destructive", 
                 onPress: async () => {
                     try {
-                        const token = await getToken();
-                        await axios.delete(`${API_URL}/workouts/${workoutId}`, {
-                            headers: { Authorization: `Bearer ${token}` }
-                        });
+                        await api.delete(`/workouts/${workoutId}`);
                         setDetailModalVisible(false);
                         fetchWorkouts();
                     } catch (error) {

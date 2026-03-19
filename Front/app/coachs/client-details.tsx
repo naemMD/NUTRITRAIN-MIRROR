@@ -6,14 +6,12 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import axios from 'axios';
-import Constants from 'expo-constants';
 import Toast from 'react-native-toast-message';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { crossAlert } from '@/services/crossAlert';
 
 import { getUniqueMuscles, getExercisesByMuscle } from '@/constants/exercisesData';
-import { getToken } from '@/services/authStorage';
+import api from '@/services/api';
 
 const { width } = Dimensions.get('window');
 
@@ -39,7 +37,6 @@ const goalLabels: { [key: string]: string } = {
 const ClientDetailsScreen = () => {
   const navigation = useRouter();
   const params = useLocalSearchParams();
-  const API_URL = Constants.expoConfig?.extra?.API_URL ?? '';
 
   const [clientData, setClientData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -102,11 +99,9 @@ const ClientDetailsScreen = () => {
     setLoading(true);
     try {
       if (clientId) {
-          const token = await getToken();
           const formattedDate = selectedDate.toISOString().split('T')[0];
-          const response = await axios.get(`${API_URL}/coaches/client-details/${clientId}`, {
-              params: { target_date: formattedDate },
-              headers: { Authorization: `Bearer ${token}` }
+          const response = await api.get(`/coaches/client-details/${clientId}`, {
+              params: { target_date: formattedDate }
           });
           setClientData(response.data);
       }
@@ -153,16 +148,13 @@ const ClientDetailsScreen = () => {
   const handleUpdateGoals = async () => {
     setUpdatingGoals(true);
     try {
-      const token = await getToken();
       const payload = {
         daily_caloric_needs: parseFloat(editCalories) || 0,
         goal_proteins: parseFloat(editProteins) || 0,
         goal_carbs: parseFloat(editCarbs) || 0,
         goal_fats: parseFloat(editFats) || 0,
       };
-      await axios.patch(`${API_URL}/users/${clientId}/goals`, payload, {
-          headers: { Authorization: `Bearer ${token}` }
-      });
+      await api.patch(`/users/${clientId}/goals`, payload);
       setModalVisible(false);
       loadData();
       Toast.show({ type: 'success', text1: 'Goals updated! 🎯' });
@@ -218,7 +210,7 @@ const ClientDetailsScreen = () => {
 
     setSearchingFood(true);
     try {
-      const response = await axios.get(`${API_URL}/getAlimentFromApi/${foodSearchQuery}`);
+      const response = await api.get(`/getAlimentFromApi/${foodSearchQuery}`);
       setFoodSearchResults(response.data.map((food: any) => ({
           name: food.name,
           image: food.image,
@@ -238,7 +230,7 @@ const ClientDetailsScreen = () => {
 
     setSearchingFood(true);
     try {
-      const response = await axios.get(`${API_URL}/getAlimentNutriment/${item.code}/${foodSearchWeight}`);
+      const response = await api.get(`/getAlimentNutriment/${item.code}/${foodSearchWeight}`);
       const foodDetails = response.data;
       const weightNum = parseFloat(foodSearchWeight);
       const ratio = weightNum / 100;
@@ -294,8 +286,6 @@ const ClientDetailsScreen = () => {
     }
     setSavingMeal(true);
     try {
-      const token = await getToken();
-      
       const payload = {
         name: mealName,
         total_calories: totalMealMacros.calories,
@@ -314,13 +304,13 @@ const ClientDetailsScreen = () => {
                 carbohydrates: f.baseMacros.carbohydrates * (f.weight / 100),
                 lipids: f.baseMacros.lipids * (f.weight / 100)
             }
-        })) 
+        }))
       };
 
       if (editingMealId) {
-        await axios.put(`${API_URL}/coaches/meals/${editingMealId}`, payload, { headers: { Authorization: `Bearer ${token}` } });
+        await api.put(`/coaches/meals/${editingMealId}`, payload);
       } else {
-        await axios.post(`${API_URL}/coaches/clients/${clientId}/meals/create`, payload, { headers: { Authorization: `Bearer ${token}` } });
+        await api.post(`/coaches/clients/${clientId}/meals/create`, payload);
       }
       setIsMealModalVisible(false);
       setSelectedFoods([]);
@@ -337,8 +327,7 @@ const ClientDetailsScreen = () => {
     crossAlert("Delete Meal", "Are you sure you want to delete this meal?", [
         { text: "Cancel", style: "cancel" },
         { text: "Delete", style: "destructive", onPress: async () => {
-            const token = await getToken();
-            await axios.delete(`${API_URL}/coaches/meals/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+            await api.delete(`/coaches/meals/${id}`);
             loadData();
             Toast.show({ type: 'success', text1: 'Meal deleted.' });
         }}
@@ -373,7 +362,7 @@ const ClientDetailsScreen = () => {
       setScanned(true);
 
       try {
-          const response = await axios.get(`${API_URL}/scan/${data}/json`);
+          const response = await api.get(`/scan/${data}/json`);
           const foodData = { 
               name: response.data.name || 'Scanned Food', 
               code: data, 
@@ -441,8 +430,7 @@ const ClientDetailsScreen = () => {
       { text: "Cancel", style: "cancel" },
       { text: "Delete", style: "destructive", onPress: async () => {
           try {
-            const token = await getToken();
-            await axios.delete(`${API_URL}/coaches/workouts/${id}`, { headers: { Authorization: `Bearer ${token}` }});
+            await api.delete(`/coaches/workouts/${id}`);
             Toast.show({ type: 'success', text1: 'Workout deleted.' });
             loadData();
           } catch (e) { crossAlert("Error", "Could not delete workout"); }
@@ -494,14 +482,13 @@ const ClientDetailsScreen = () => {
     if (!workoutName.trim()) return crossAlert("Error", "Please provide a workout name.");
     setSavingWorkout(true);
     try {
-      const token = await getToken();
       const payload = {
         name: workoutName, description: "", difficulty: workoutDifficulty, scheduled_date: selectedDate.toISOString(), exercises: exercises
       };
       if (editingWorkoutId) {
-        await axios.put(`${API_URL}/coaches/workouts/${editingWorkoutId}`, payload, { headers: { Authorization: `Bearer ${token}` }});
+        await api.put(`/coaches/workouts/${editingWorkoutId}`, payload);
       } else {
-        await axios.post(`${API_URL}/coaches/clients/${clientId}/workouts/create`, payload, { headers: { Authorization: `Bearer ${token}` }});
+        await api.post(`/coaches/clients/${clientId}/workouts/create`, payload);
       }
       setWorkoutModalVisible(false);
       loadData();

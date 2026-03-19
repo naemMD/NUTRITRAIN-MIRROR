@@ -3,16 +3,13 @@ import { StyleSheet, Text, View, TextInput, TouchableOpacity, FlatList, Keyboard
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import axios from 'axios';
-import Constants from 'expo-constants';
-import { getToken, getUserDetails } from '@/services/authStorage';
+import { getUserDetails } from '@/services/authStorage';
+import api from '@/services/api';
 
 const ChatScreen = () => {
   const { id, name } = useLocalSearchParams();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const API_URL = Constants.expoConfig?.extra?.API_URL ?? '';
-
   const [messages, setMessages] = useState<any[]>([]);
   const [inputText, setInputText] = useState('');
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
@@ -27,10 +24,7 @@ const ChatScreen = () => {
 
   const markAsRead = async (userId: number) => {
     try {
-      const token = await getToken();
-      await axios.put(`${API_URL}/messages/read/${id}?current_user_id=${userId}`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await api.put(`/messages/read/${id}?current_user_id=${userId}`);
     } catch (error) {
       console.error("Erreur lecture messages:", error);
     }
@@ -38,10 +32,7 @@ const ChatScreen = () => {
 
   const fetchMessages = async (userId: number) => {
     try {
-      const token = await getToken();
-      const res = await axios.get(`${API_URL}/messages/${id}?current_user_id=${userId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await api.get(`/messages/${id}?current_user_id=${userId}`);
       setMessages(res.data.reverse());
     } catch (error) {
       console.error("Erreur messages:", error);
@@ -80,12 +71,9 @@ const ChatScreen = () => {
     setMessages((prev) => [optimisticMsg, ...prev]);
     setInputText('');
     try {
-      const token = await getToken();
-      await axios.post(`${API_URL}/messages?current_user_id=${currentUserId}`, {
+      await api.post(`/messages?current_user_id=${currentUserId}`, {
         receiver_id: Number(id),
         content: optimisticMsg.content
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
       });
     } catch (error) {
       console.error("Erreur envoi message:", error);

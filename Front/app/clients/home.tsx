@@ -7,12 +7,11 @@ import {
 import { crossAlert } from '@/services/crossAlert';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import axios from 'axios';
-import Constants from 'expo-constants';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useFocusEffect, useRouter } from 'expo-router';
 
-import { getUserDetails, getToken } from '@/services/authStorage';
+import { getUserDetails } from '@/services/authStorage';
+import api from '@/services/api';
 import MealCard from '@/components/MealCard';
 
 const { width, height } = Dimensions.get('window');
@@ -31,8 +30,7 @@ const FoodImage = ({ uri, style, iconSize = 24 }: any) => {
 };
 
 const HomeScreen = () => {
-  const router = useRouter(); 
-  const API_URL = Constants.expoConfig?.extra?.API_URL ?? '';
+  const router = useRouter();
 
   // --- STATE DASHBOARD ---
   const [user, setUser] = useState<any>(null);
@@ -85,11 +83,7 @@ const HomeScreen = () => {
 
   const fetchInvitations = async () => {
     try {
-        const token = await getToken();
-        if (!token) return;
-        const response = await axios.get(`${API_URL}/clients/me/invitations`, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
+        const response = await api.get(`/clients/me/invitations`);
         setInvitations(response.data.invitations || []);
     } catch (error) {
         console.log("Error fetching invitations:", error);
@@ -115,10 +109,7 @@ const HomeScreen = () => {
 
   const fetchDashboardStats = async (userId: number) => {
     try {
-        const token = await getToken();
-        const res = await axios.get(`${API_URL}/users/me/dashboard-stats`, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
+        const res = await api.get(`/users/me/dashboard-stats`);
         setDashboardStats(res.data);
     } catch (error) {
         console.log("Error stats:", error);
@@ -127,7 +118,7 @@ const HomeScreen = () => {
 
   const fetchMeals = async (userId: number) => {
     try {
-      const response = await axios.get(`${API_URL}/users/get_daily_meals/${userId}`);
+      const response = await api.get(`/users/get_daily_meals/${userId}`);
       const sorted = response.data.meals.sort((a: any, b: any) => 
         new Date(a.hourtime).getTime() - new Date(b.hourtime).getTime()
       );
@@ -140,11 +131,8 @@ const HomeScreen = () => {
   // --- 2. ACTIONS DASHBOARD ---
   const handleToggleEat = async (mealId: number) => {
       try {
-          const token = await getToken();
           setMyMeals(prev => prev.map(m => m.id === mealId ? {...m, is_consumed: !m.is_consumed} : m));
-          await axios.patch(`${API_URL}/meals/${mealId}/toggle-consume`, {}, {
-              headers: { Authorization: `Bearer ${token}` }
-          });
+          await api.patch(`/meals/${mealId}/toggle-consume`);
           if (user) fetchDashboardStats(user.id);
       } catch (error) {
           crossAlert("Error", "Connection issue");
@@ -156,8 +144,7 @@ const HomeScreen = () => {
     if (isNaN(goalValue) || goalValue <= 0) return;
     setUpdatingGoal(true);
     try {
-        const token = await getToken();
-        await axios.patch(`${API_URL}/users/me/goals`, { daily_caloric_needs: goalValue }, { headers: { Authorization: `Bearer ${token}` } });
+        await api.patch(`/users/me/goals`, { daily_caloric_needs: goalValue });
         setIsGoalModalVisible(false);
         if (user) fetchDashboardStats(user.id);
     } catch (error) {
@@ -208,7 +195,7 @@ const HomeScreen = () => {
 
     setLoadingSearch(true);
     try {
-      const response = await axios.get(`${API_URL}/getAlimentFromApi/${search}`);
+      const response = await api.get(`/getAlimentFromApi/${search}`);
       setResults(response.data.map((food: any) => ({
           name: food.name,
           image: food.image,
@@ -228,7 +215,7 @@ const HomeScreen = () => {
 
     setLoadingSearch(true);
     try {
-      const response = await axios.get(`${API_URL}/getAlimentNutriment/${item.code}/${searchWeight}`);
+      const response = await api.get(`/getAlimentNutriment/${item.code}/${searchWeight}`);
       const foodDetails = response.data;
       const weightNum = parseFloat(searchWeight);
       const ratio = weightNum / 100;
@@ -324,9 +311,9 @@ const HomeScreen = () => {
 
     try {
       if (editingId) {
-        await axios.put(`${API_URL}/updateMeal/${editingId}`, mealData);
+        await api.put(`/updateMeal/${editingId}`, mealData);
       } else {
-        await axios.post(`${API_URL}/addMeal/${user?.id}`, mealData);
+        await api.post(`/addMeal/${user?.id}`, mealData);
       }
       await loadData();
       handleCloseModal();
@@ -367,7 +354,7 @@ const HomeScreen = () => {
         { text: "Cancel", style: "cancel" },
         { text: "Delete", style: "destructive", onPress: async () => {
             try {
-                await axios.delete(`${API_URL}/deleteMeal/${editingId}`);
+                await api.delete(`/deleteMeal/${editingId}`);
                 await loadData();
                 handleCloseModal();
             } catch (error) {
@@ -402,7 +389,7 @@ const HomeScreen = () => {
       setScanned(true);
 
       try {
-          const response = await axios.get(`${API_URL}/scan/${data}/json`);
+          const response = await api.get(`/scan/${data}/json`);
           const foodData = { 
               name: response.data.name || 'Scanned Food', 
               code: data, 

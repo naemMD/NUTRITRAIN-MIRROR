@@ -4,17 +4,14 @@ import { crossAlert } from '@/services/crossAlert';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'; // 🔥 Stack importé ici
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import axios from 'axios';
-import Constants from 'expo-constants';
-import { getToken, getUserDetails } from '@/services/authStorage';
+import { getUserDetails } from '@/services/authStorage';
+import api from '@/services/api';
 import { Toast } from 'react-native-toast-message/lib/src/Toast';
 
 const CoachPublicProfile = () => {
   const { coachId, invitationId } = useLocalSearchParams();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const API_URL = Constants.expoConfig?.extra?.API_URL ?? '';
-
   const [coach, setCoach] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
@@ -37,22 +34,19 @@ const CoachPublicProfile = () => {
     }
 
     try {
-      const token = await getToken();
       const user = await getUserDetails();
 
       if (user?.id) {
-          const userRes = await axios.get(`${API_URL}/users/me/${user.id}`);
+          const userRes = await api.get(`/users/me/${user.id}`);
           setHasCoach(!!userRes.data.coach_id);
       }
 
-      const response = await axios.get(`${API_URL}/coaches/${coachId}/public-profile`);
+      const response = await api.get(`/coaches/${coachId}/public-profile`);
       setCoach(response.data);
 
       if (user?.id && !invitationId) {
          try {
-             const requestsRes = await axios.get(`${API_URL}/clients/me/sent-requests?current_user_id=${user.id}`, {
-                 headers: { Authorization: `Bearer ${token}` }
-             });
+             const requestsRes = await api.get(`/clients/me/sent-requests?current_user_id=${user.id}`);
              
              const pendingReq = requestsRes.data.find((req: any) => req.coach_id === Number(coachId));
              
@@ -95,12 +89,7 @@ const CoachPublicProfile = () => {
   const submitResponse = async (status: 'accepted' | 'rejected') => {
     setProcessing(true);
     try {
-      const token = await getToken();
-      await axios.patch(
-        `${API_URL}/clients/invitations/${invitationId}`,
-        { status },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await api.patch(`/clients/invitations/${invitationId}`, { status });
   
       const message = status === 'accepted' 
         ? "You are now linked with your new coach!" 
@@ -127,13 +116,10 @@ const CoachPublicProfile = () => {
 
     setSendingRequest(true);
     try {
-        const token = await getToken();
         const user = await getUserDetails();
-        
-        await axios.post(`${API_URL}/clients/me/requests?current_user_id=${user?.id}`, {
-            coach_id: Number(coachId) 
-        }, {
-            headers: { Authorization: `Bearer ${token}` }
+
+        await api.post(`/clients/me/requests?current_user_id=${user?.id}`, {
+            coach_id: Number(coachId)
         });
 
         Toast.show({ type: 'success', text1: 'Request sent! 🚀', text2: 'The coach has been notified of your request.' });
@@ -164,11 +150,8 @@ const CoachPublicProfile = () => {
           style: "destructive", 
           onPress: async () => {
             try {
-              const token = await getToken();
               const user = await getUserDetails();
-              await axios.delete(`${API_URL}/clients/requests/${pendingRequestId}?current_user_id=${user?.id}`, {
-                headers: { Authorization: `Bearer ${token}` }
-              });
+              await api.delete(`/clients/requests/${pendingRequestId}?current_user_id=${user?.id}`);
               
               Toast.show({ type: 'success', text1: 'Request cancelled' });
               setRequestStatus('none');

@@ -3,17 +3,14 @@ import { StyleSheet, Text, View, TouchableOpacity, Dimensions, FlatList, Activit
 import { crossAlert } from '@/services/crossAlert';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import axios from 'axios';
-import Constants from 'expo-constants';
-import { getUserDetails, getToken } from '@/services/authStorage';
+import { getUserDetails } from '@/services/authStorage';
+import api from '@/services/api';
 import Toast from 'react-native-toast-message';
 
 const { width } = Dimensions.get('window');
 
 const CoachListScreen = () => {
   const navigation = useRouter();
-  const API_URL = Constants.expoConfig?.extra?.API_URL ?? '';
-  
   const [clients, setClients] = useState([]);
   const [sentInvitations, setSentInvitations] = useState([]);
   const [receivedRequests, setReceivedRequests] = useState([]); 
@@ -39,10 +36,7 @@ const CoachListScreen = () => {
   const fetchClients = async (id = userId) => {
     if (!id) return;
     try {
-        const token = await getToken();
-        const response = await axios.get(`${API_URL}/coaches/${id}/clients`, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
+        const response = await api.get(`/coaches/${id}/clients`);
         setClients(response.data);
     } catch (error) {
         console.error("Error fetching clients:", error);
@@ -53,10 +47,7 @@ const CoachListScreen = () => {
 
   const fetchSentInvitations = async () => {
       try {
-          const token = await getToken();
-          const response = await axios.get(`${API_URL}/coaches/me/sent-invitations`, {
-              headers: { Authorization: `Bearer ${token}` }
-          });
+          const response = await api.get(`/coaches/me/sent-invitations`);
           setSentInvitations(response.data);
       } catch (error) {
           console.error("Error fetching sent invitations:", error);
@@ -66,10 +57,7 @@ const CoachListScreen = () => {
   const fetchReceivedRequests = async (id = userId) => {
       if (!id) return;
       try {
-          const token = await getToken();
-          const response = await axios.get(`${API_URL}/coaches/me/pending-requests?current_user_id=${id}`, {
-              headers: { Authorization: `Bearer ${token}` }
-          });
+          const response = await api.get(`/coaches/me/pending-requests?current_user_id=${id}`);
           setReceivedRequests(response.data);
       } catch (error) {
           console.error("Error fetching received requests:", error);
@@ -109,11 +97,9 @@ const CoachListScreen = () => {
       
       setAdding(true);
       try {
-          const token = await getToken();
-          await axios.post(
-            `${API_URL}/coaches/invite-client`, 
-            { unique_code: clientCode.trim() },
-            { headers: { Authorization: `Bearer ${token}` } }
+          await api.post(
+            `/coaches/invite-client`,
+            { unique_code: clientCode.trim() }
           );
           Toast.show({ type: 'success', text1: 'Invitation sent! 🚀', text2: 'Your coaching request has been sent.' });
           setIsInviteModalVisible(false);
@@ -132,10 +118,7 @@ const CoachListScreen = () => {
         { text: "Cancel", style: "cancel" },
         { text: "Delete", style: "destructive", onPress: async () => {
             try {
-                const token = await getToken();
-                await axios.delete(`${API_URL}/coaches/invitations/${invitationId}`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
+                await api.delete(`/coaches/invitations/${invitationId}`);
                 fetchSentInvitations();
                 Toast.show({ type: 'success', text1: 'Deleted', text2: 'The invitation has been successfully removed.' });
             } catch (e) {
@@ -156,10 +139,7 @@ const CoachListScreen = () => {
                   style: "destructive",
                   onPress: async () => {
                       try {
-                          const token = await getToken();
-                          await axios.delete(`${API_URL}/coaches/clients/${clientId}`, {
-                              headers: { Authorization: `Bearer ${token}` }
-                          });
+                          await api.delete(`/coaches/clients/${clientId}`);
                           Toast.show({ type: 'success', text1: 'Client Removed', text2: `${clientName} is no longer your client.` });
                           fetchClients(userId); 
                       } catch (error) {
@@ -174,11 +154,9 @@ const CoachListScreen = () => {
   // 🔥 ACTION SUR LES DEMANDES REÇUES
   const handleRequestAction = async (requestId: number, status: 'accepted' | 'rejected') => {
       try {
-          const token = await getToken();
-          await axios.patch(
-              `${API_URL}/coaches/requests/${requestId}?status=${status}&current_user_id=${userId}`, 
-              {}, 
-              { headers: { Authorization: `Bearer ${token}` } }
+          await api.patch(
+              `/coaches/requests/${requestId}?status=${status}&current_user_id=${userId}`,
+              {}
           );
           
           Toast.show({

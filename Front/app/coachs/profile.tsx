@@ -3,15 +3,12 @@ import { StyleSheet, Text, View, TouchableOpacity, ScrollView, ActivityIndicator
 import { crossAlert } from '@/services/crossAlert';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import axios from 'axios';
-import Constants from 'expo-constants';
 import { getUserDetails } from '@/services/authStorage';
-import { getToken } from '@/services/authStorage';
+import api from '@/services/api';
 import Toast from 'react-native-toast-message';
 
 const CoachProfileScreen = () => {
   const insets = useSafeAreaInsets();
-  const API_URL = Constants.expoConfig?.extra?.API_URL ?? '';
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [description, setDescription] = useState('');
@@ -23,7 +20,7 @@ const CoachProfileScreen = () => {
       try {
         const session = await getUserDetails();
         if (session?.id) {
-          const response = await axios.get(`${API_URL}/users/me/${session.id}`);
+          const response = await api.get(`/users/me/${session.id}`);
           setUser(response.data);
           setDescription(response.data?.description || '');
         }
@@ -39,11 +36,7 @@ const CoachProfileScreen = () => {
   const handleSaveDescription = async () => {
     setSavingDesc(true);
     try {
-      const token = await getToken();
-      await axios.patch(`${API_URL}/users/me/description`, 
-        { description: description }, 
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await api.patch(`/users/me/description`, { description: description });
       
       Toast.show({ type: 'success', text1: 'Profile updated!' });
       setIsEditingDesc(false);

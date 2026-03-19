@@ -1,10 +1,13 @@
 {
   "expo": {
     "name": "NutriTrain",
-    "slug": "nutritrain",
-    "version": "1.0.0",
-    "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "slug": "NutriTrain",
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      }
+    },
     "web": {
       "favicon": "./assets/images/favicon.png",
       "shortName": "NutriTrain",
@@ -12,7 +15,8 @@
       "themeColor": "#1A1F2B",
       "backgroundColor": "#1A1F2B",
       "display": "standalone",
-      "orientation": "portrait" 
+      "orientation": "portrait",
+      "startUrl": "/login"
     }
   }
 }

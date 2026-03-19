@@ -2,16 +2,14 @@ import React, { useState, useCallback } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
-import axios from 'axios';
-import Constants from 'expo-constants';
-import { getUserDetails, getToken } from '@/services/authStorage';
+import { getUserDetails } from '@/services/authStorage';
+import api from '@/services/api';
 import { copyToClipboard } from '@/services/crossClipboard';
 import { crossAlert } from '@/services/crossAlert';
 import { Toast } from 'react-native-toast-message/lib/src/Toast';
 
 const CoachScreen = () => {
   const router = useRouter();
-  const API_URL = Constants.expoConfig?.extra?.API_URL ?? '';
 
   const [user, setUser] = useState<any>(null);
   const [myCoach, setMyCoach] = useState<any>(null);
@@ -23,16 +21,15 @@ const CoachScreen = () => {
     try {
       setLoading(true);
       const session = await getUserDetails();
-      const token = await getToken();
-      
-      if (session?.id && token) {
-         const userRes = await axios.get(`${API_URL}/users/me/${session.id}`);
+
+      if (session?.id) {
+         const userRes = await api.get(`/users/me/${session.id}`);
          const userData = userRes.data;
          setUser(userData);
 
          if (userData.coach_id) {
              try {
-                 const coachRes = await axios.get(`${API_URL}/users/me/${userData.coach_id}`);
+                 const coachRes = await api.get(`/users/me/${userData.coach_id}`);
                  setMyCoach(coachRes.data);
              } catch (e) {
                  console.error("Could not fetch coach details", e);
@@ -40,14 +37,10 @@ const CoachScreen = () => {
          } else {
              setMyCoach(null);
              try {
-                 const invRes = await axios.get(`${API_URL}/clients/me/invitations`, {
-                     headers: { Authorization: `Bearer ${token}` }
-                 });
+                 const invRes = await api.get(`/clients/me/invitations`);
                  setInvitations(invRes.data.invitations || []);
 
-                 const sentRes = await axios.get(`${API_URL}/clients/me/sent-requests?current_user_id=${session.id}`, {
-                     headers: { Authorization: `Bearer ${token}` }
-                 });
+                 const sentRes = await api.get(`/clients/me/sent-requests?current_user_id=${session.id}`);
                  setSentRequests(sentRes.data || []);
              } catch (e) {
                  console.error("Could not fetch requests", e);
@@ -85,10 +78,7 @@ const CoachScreen = () => {
                   style: "destructive",
                   onPress: async () => {
                       try {
-                          const token = await getToken();
-                          await axios.delete(`${API_URL}/users/me/coach`, {
-                              headers: { Authorization: `Bearer ${token}` }
-                          });
+                          await api.delete(`/users/me/coach`);
                           setMyCoach(null); 
                           loadData(); 
                       } catch (error) {
@@ -111,11 +101,8 @@ const CoachScreen = () => {
           style: "destructive", 
           onPress: async () => {
             try {
-              const token = await getToken();
               const session = await getUserDetails();
-              await axios.delete(`${API_URL}/clients/requests/${requestId}?current_user_id=${session?.id}`, {
-                headers: { Authorization: `Bearer ${token}` }
-              });
+              await api.delete(`/clients/requests/${requestId}?current_user_id=${session?.id}`);
               Toast.show({ type: 'success', text1: 'Request cancelled' });
               loadData(); 
             } catch (error) {

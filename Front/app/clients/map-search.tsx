@@ -3,9 +3,7 @@ import { StyleSheet, View, Text, TouchableOpacity, ActivityIndicator, Platform }
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import axios from 'axios';
-import Constants from 'expo-constants';
-import { getToken } from '@/services/authStorage';
+import api from '@/services/api';
 import { getCurrentLocation, requestLocationPermission } from '@/services/crossLocation';
 import Toast from 'react-native-toast-message';
 import { MapView, Marker, Callout, isMapAvailable } from '@/components/NativeMap';
@@ -13,8 +11,6 @@ import { MapView, Marker, Callout, isMapAvailable } from '@/components/NativeMap
 export default function MapSearchScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const API_URL = Constants.expoConfig?.extra?.API_URL ?? '';
-
   const [selectedLocation, setSelectedLocation] = useState<{latitude: number, longitude: number} | null>(null);
   const [coaches, setCoaches] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -54,10 +50,7 @@ export default function MapSearchScreen() {
   const fetchCoaches = async (lat: number, lon: number) => {
     setLoading(true);
     try {
-      const token = await getToken();
-      const res = await axios.get(`${API_URL}/coaches/search?lat=${lat}&lon=${lon}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await api.get(`/coaches/search?lat=${lat}&lon=${lon}`);
       
       const MAX_DISTANCE_KM = 50;
       const nearbyCoaches = res.data.filter((c: any) => c.distance !== null && c.distance <= MAX_DISTANCE_KM);

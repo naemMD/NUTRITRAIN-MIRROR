@@ -4,16 +4,13 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import axios from 'axios';
-import Constants from 'expo-constants';
-import { getUserDetails, getToken } from '@/services/authStorage'; 
+import { getUserDetails } from '@/services/authStorage';
+import api from '@/services/api';
 import Toast from 'react-native-toast-message';
 
 export default function CoachHomepage() {
   const insets = useSafeAreaInsets();
   const navigation = useRouter();
-  const API_URL = Constants.expoConfig?.extra?.API_URL ?? '';
-
   const [summary, setSummary] = useState<any>(null);
   const [attentionData, setAttentionData] = useState<any>(null);
   const [incomingRequests, setIncomingRequests] = useState<any[]>([]);
@@ -34,19 +31,14 @@ export default function CoachHomepage() {
   const fetchData = async () => {
     try {
       const user = await getUserDetails();
-      const token = await getToken();
-      
-      if (user?.id && token) {
+
+      if (user?.id) {
         setCoachName(user.firstname);
-        
+
         const [summaryResponse, attentionResponse, requestsResponse] = await Promise.all([
-            axios.get(`${API_URL}/coaches/${user.id}/home-summary`),
-            axios.get(`${API_URL}/coaches/me/needs-attention?current_user_id=${user.id}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            }),
-            axios.get(`${API_URL}/coaches/me/pending-requests?current_user_id=${user.id}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            })
+            api.get(`/coaches/${user.id}/home-summary`),
+            api.get(`/coaches/me/needs-attention?current_user_id=${user.id}`),
+            api.get(`/coaches/me/pending-requests?current_user_id=${user.id}`)
         ]);
 
         setSummary(summaryResponse.data);
@@ -72,12 +64,9 @@ export default function CoachHomepage() {
 
   const handleRequestAction = async (requestId: number, status: 'accepted' | 'rejected') => {
     try {
-      const token = await getToken();
       const user = await getUserDetails();
-      
-      await axios.patch(`${API_URL}/coaches/requests/${requestId}?status=${status}&current_user_id=${user?.id}`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+
+      await api.patch(`/coaches/requests/${requestId}?status=${status}&current_user_id=${user?.id}`);
 
       Toast.show({
         type: 'success',

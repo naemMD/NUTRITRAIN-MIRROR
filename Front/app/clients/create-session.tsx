@@ -7,10 +7,8 @@ import { crossAlert } from '@/services/crossAlert';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import axios from 'axios';
-import Constants from 'expo-constants';
-import DateTimePicker from '@react-native-community/datetimepicker'; 
-import { getToken } from '@/services/authStorage';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import api from '@/services/api';
 import { getUniqueMuscles, getExercisesByMuscle, ExerciseType } from '@/constants/exercisesData';
 
 interface SetDetail {
@@ -32,7 +30,6 @@ interface LocalExercise {
 const CreateSessionScreen = () => {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const API_URL = Constants.expoConfig?.extra?.API_URL ?? '';
 
   const [sessionName, setSessionName] = useState('');
   const [date, setDate] = useState(new Date());
@@ -138,7 +135,6 @@ const CreateSessionScreen = () => {
       }
       setLoadingSave(true);
       try {
-          const token = await getToken();
           const payload = {
               name: sessionName,
               description: "Custom Session",
@@ -157,9 +153,7 @@ const CreateSessionScreen = () => {
                   }))
               }))
           };
-          await axios.post(`${API_URL}/workouts/create`, payload, {
-              headers: { Authorization: `Bearer ${token}` }
-          });
+          await api.post(`/workouts/create`, payload);
           router.back();
       } catch (error: any) {
           if (error.response) console.log("ERR 422 DETAILS:", error.response.data.detail);

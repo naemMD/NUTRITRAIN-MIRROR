@@ -2,9 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import axios from 'axios';
-import Constants from 'expo-constants';
 import { getUserDetails } from '@/services/authStorage';
+import api from '@/services/api';
 import { crossAlert } from '@/services/crossAlert';
 import { copyToClipboard } from '@/services/crossClipboard';
 
@@ -12,7 +11,6 @@ const ProfileScreen = () => {
   const insets = useSafeAreaInsets();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const API_URL = Constants.expoConfig?.extra?.API_URL ?? '';
 
   // --- CONFIGURATION DES OBJECTIFS (Traductions & Icônes) ---
   const goalConfig: { [key: string]: { label: string; icon: any; color: string } } = {
@@ -26,7 +24,7 @@ const ProfileScreen = () => {
     try {
         const session = await getUserDetails();
         if (session?.id) {
-            const response = await axios.get(`${API_URL}/users/me/${session.id}`);
+            const response = await api.get(`/users/me/${session.id}`);
             setUser(response.data);
         }
     } catch (e) {

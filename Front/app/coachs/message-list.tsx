@@ -2,25 +2,19 @@ import React, { useState, useCallback } from 'react';
 import { StyleSheet, Text, View, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import axios from 'axios';
-import Constants from 'expo-constants';
-import { getToken, getUserDetails } from '@/services/authStorage';
+import { getUserDetails } from '@/services/authStorage';
+import api from '@/services/api';
 
 const MessagesListScreen = () => {
   const router = useRouter();
-  const API_URL = Constants.expoConfig?.extra?.API_URL ?? '';
-  
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const fetchConversations = async () => {
     try {
-      const token = await getToken();
-      const user = await getUserDetails(); 
-      
-      const response = await axios.get(`${API_URL}/messages/conversations?current_user_id=${user.id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const user = await getUserDetails();
+
+      const response = await api.get(`/messages/conversations?current_user_id=${user.id}`);
       setConversations(response.data);
     } catch (error) {
       console.error("Erreur chargement conversations", error);
