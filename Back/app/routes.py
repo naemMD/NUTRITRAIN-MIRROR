@@ -502,6 +502,14 @@ async def get_conversations_route(
     return await get_conversations(session, current_user_id)
 
 
+@router.get("/messages/unread-count")
+async def get_unread_count_route(
+    current_user_id: int = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_session)
+):
+    return await get_unread_message_count(session, current_user_id)
+
+
 # -- POST & PUT fixes
 @router.post("/messages", response_model=MessageRead)
 async def send_message_route(

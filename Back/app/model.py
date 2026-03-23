@@ -603,6 +603,26 @@ async def toggle_workout_complete(session: AsyncSession, workout_id: int, user_i
     return workout
 
 
+async def auto_complete_daily_workouts(session: AsyncSession):
+    today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end = today_start + timedelta(days=1)
+
+    stmt = (
+        update(Workout)
+        .where(
+            and_(
+                Workout.scheduled_date >= today_start,
+                Workout.scheduled_date < today_end,
+                Workout.is_completed == False
+            )
+        )
+        .values(is_completed=True)
+    )
+    result = await session.execute(stmt)
+    await session.commit()
+    return result.rowcount
+
+
 # ---------------------------------------------------------------------------
 # Coaches
 # ---------------------------------------------------------------------------
@@ -1600,6 +1620,19 @@ async def get_coach_needs_attention(session: AsyncSession, coach_id: int):
         "unread_messages": unread_messages_count,
         "total_alerts": pending_invites_count + unread_messages_count
     }
+
+
+async def get_unread_message_count(session: AsyncSession, user_id: int):
+    result = await session.execute(
+        select(func.count(Message.id))
+        .where(
+            and_(
+                Message.receiver_id == user_id,
+                Message.is_read == False
+            )
+        )
+    )
+    return {"unread_count": result.scalar() or 0}
 
 
 async def mark_messages_read(session: AsyncSession, current_user_id: int, other_user_id: int):

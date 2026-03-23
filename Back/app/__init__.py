@@ -41,7 +41,13 @@ def create_app():
                 count = await cleanup_inactive_forums(session)
                 print(f"[Scheduler] Deleted {count} inactive forum(s)")
 
+        async def run_auto_complete_workouts():
+            async with SessionLocal() as session:
+                count = await auto_complete_daily_workouts(session)
+                print(f"[Scheduler] Auto-completed {count} workout(s) for today")
+
         scheduler.add_job(run_cleanup, CronTrigger(hour=0, minute=0))
+        scheduler.add_job(run_auto_complete_workouts, CronTrigger(hour=23, minute=59))
         scheduler.start()
 
     @app.on_event("shutdown")

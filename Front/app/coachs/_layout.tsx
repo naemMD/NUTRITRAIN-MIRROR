@@ -2,9 +2,25 @@ import { Stack, router, usePathname } from "expo-router";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useState, useEffect, useCallback } from "react";
+import api from "../../services/api";
 
 export default function CoachLayout() {
   const pathname = usePathname();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const fetchUnreadCount = useCallback(async () => {
+    try {
+      const res = await api.get("/messages/unread-count");
+      setUnreadCount(res.data.unread_count || 0);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    fetchUnreadCount();
+    const interval = setInterval(fetchUnreadCount, 10000);
+    return () => clearInterval(interval);
+  }, [fetchUnreadCount]);
 
   // 🔥 On ajoute "client-details" ici pour masquer le footer
   const isSpecialPage =
@@ -73,8 +89,13 @@ export default function CoachLayout() {
               <Ionicons name="people" size={26} color={pathname === "/coachs/client-list" ? "#3498DB" : "white"} />
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={() => router.push("/coachs/message-list")}>
+            <TouchableOpacity onPress={() => router.push("/coachs/message-list")} style={{ position: "relative" }}>
               <Ionicons name="chatbubbles" size={26} color={pathname === "/coachs/message-list" ? "#3498DB" : "white"} />
+              {unreadCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{unreadCount > 99 ? "99+" : unreadCount}</Text>
+                </View>
+              )}
             </TouchableOpacity>
 
             <TouchableOpacity onPress={() => router.push("/coachs/forum")}>
@@ -114,6 +135,23 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   starButton: { padding: 5 },
+  badge: {
+    position: "absolute",
+    top: -6,
+    right: -10,
+    backgroundColor: "#E74C3C",
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: "white",
+    fontSize: 11,
+    fontWeight: "bold",
+  },
   footer: {
     height: 75,
     backgroundColor: "#161B22",
