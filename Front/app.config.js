@@ -45,7 +45,7 @@ export default {
     },
 
     extra: {
-      API_URL: "nutri-f0dxc3e8chd9f0g2.spaincentral-01.azurewebsites.net"
+      API_URL: "https://nutri-f0dxc3e8chd9f0g2.spaincentral-01.azurewebsites.net"
     }
   }
 };
