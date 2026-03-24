@@ -1,13 +1,14 @@
 import React, { useState, useCallback, useRef } from 'react';
 import {
   StyleSheet, Text, View, TouchableOpacity, FlatList, ActivityIndicator,
-  Modal, ScrollView, Animated, PanResponder, Dimensions
+  Modal, ScrollView, Animated, PanResponder, Dimensions, TextInput, Pressable
 } from 'react-native';
 import { crossAlert } from '@/services/crossAlert';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { Ionicons } from '@expo/vector-icons';
 import api from '@/services/api';
+import { getUniqueMuscles, getExercisesByMuscle } from '@/constants/exercisesData';
 
 LocaleConfig.locales['en'] = {
   monthNames: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
@@ -31,6 +32,14 @@ const TrainingDashboard = () => {
   
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedWorkout, setSelectedWorkout] = useState<any>(null);
+
+  // Edit mode state
+  const [editExercises, setEditExercises] = useState<any[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [addExoModalVisible, setAddExoModalVisible] = useState(false);
+  const [addExoStep, setAddExoStep] = useState<'muscles' | 'exercises'>('muscles');
+  const [addExoListData, setAddExoListData] = useState<any[]>([]);
+  const [addExoSelectedMuscle, setAddExoSelectedMuscle] = useState<string | null>(null);
 
   const panY = useRef(new Animated.Value(SHEET_MAX_Y)).current;
 
@@ -131,6 +140,12 @@ const TrainingDashboard = () => {
 
   const openWorkoutDetails = (workout: any) => {
       setSelectedWorkout(workout);
+      const exos = typeof workout.exercises === 'string' ? JSON.parse(workout.exercises) : workout.exercises;
+      setEditExercises(exos.map((e: any, i: number) => ({
+        ...e,
+        _id: e.id || Date.now() + i,
+        sets_details: safeParseSets(e.sets_details),
+      })));
       setDetailModalVisible(true);
   };
 
@@ -140,6 +155,109 @@ const TrainingDashboard = () => {
       try { return JSON.parse(sets); } catch (e) { return []; }
     }
     return sets;
+  };
+
+  // --- Edit helpers ---
+  const updateSetField = (exoIdx: number, setIdx: number, field: string, value: string) => {
+    setEditExercises(prev => {
+      const updated = [...prev];
+      const sets = [...updated[exoIdx].sets_details];
+      sets[setIdx] = { ...sets[setIdx], [field]: parseFloat(value) || 0 };
+      updated[exoIdx] = { ...updated[exoIdx], sets_details: sets };
+      return updated;
+    });
+  };
+
+  const addSetToExercise = (exoIdx: number) => {
+    setEditExercises(prev => {
+      const updated = [...prev];
+      const sets = [...updated[exoIdx].sets_details];
+      const last = sets[sets.length - 1] || { reps: 10, weight: 0, duration: 0 };
+      sets.push({ set_number: sets.length + 1, reps: last.reps, weight: last.weight, duration: last.duration });
+      updated[exoIdx] = { ...updated[exoIdx], sets_details: sets, num_sets: sets.length };
+      return updated;
+    });
+  };
+
+  const removeSetFromExercise = (exoIdx: number, setIdx: number) => {
+    setEditExercises(prev => {
+      const updated = [...prev];
+      const sets = updated[exoIdx].sets_details.filter((_: any, i: number) => i !== setIdx)
+        .map((s: any, i: number) => ({ ...s, set_number: i + 1 }));
+      if (sets.length === 0) return prev;
+      updated[exoIdx] = { ...updated[exoIdx], sets_details: sets, num_sets: sets.length };
+      return updated;
+    });
+  };
+
+  const removeExercise = (exoIdx: number) => {
+    setEditExercises(prev => prev.filter((_, i) => i !== exoIdx));
+  };
+
+  const openAddExoModal = () => {
+    setAddExoStep('muscles');
+    setAddExoListData(getUniqueMuscles());
+    setAddExoSelectedMuscle(null);
+    setAddExoModalVisible(true);
+  };
+
+  const handleAddExoSelectMuscle = (muscle: string) => {
+    setAddExoSelectedMuscle(muscle);
+    setAddExoStep('exercises');
+    setAddExoListData(getExercisesByMuscle(muscle));
+  };
+
+  const handleAddExoSelect = (exerciseObj: any) => {
+    const isDuration = exerciseObj.type === 'duration';
+    const newExo = {
+      _id: Date.now(),
+      name: exerciseObj.name,
+      muscle: addExoSelectedMuscle || 'Global',
+      num_sets: 1,
+      rest_time: 60,
+      sets_details: [{ set_number: 1, reps: isDuration ? 0 : 10, weight: 0, duration: isDuration ? 60 : 0 }],
+    };
+    setEditExercises(prev => [...prev, newExo]);
+    setAddExoModalVisible(false);
+  };
+
+  const handleSaveWorkout = async () => {
+    if (!selectedWorkout || editExercises.length === 0) {
+      crossAlert("Error", "A workout must have at least one exercise.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const payload = {
+        name: selectedWorkout.name,
+        difficulty: selectedWorkout.difficulty || "Intermediate",
+        exercises: editExercises.map(e => ({
+          name: e.name,
+          muscle: e.muscle,
+          num_sets: e.sets_details.length,
+          rest_time: e.rest_time || 60,
+          sets_details: e.sets_details.map((s: any) => ({
+            set_number: s.set_number,
+            reps: s.reps || 0,
+            weight: s.weight || 0,
+            duration: s.duration || 0,
+          })),
+        })),
+      };
+      await api.put(`/workouts/${selectedWorkout.id}`, payload);
+      setDetailModalVisible(false);
+      fetchWorkouts();
+    } catch (error) {
+      console.error("Error updating workout:", error);
+      crossAlert("Error", "Could not update workout.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const isDurationExercise = (exo: any) => {
+    const sets = exo.sets_details || [];
+    return sets.length > 0 && sets[0].duration > 0 && (sets[0].reps === 0 || !sets[0].reps);
   };
 
   const renderWorkoutItem = ({ item }: { item: any }) => {
@@ -262,12 +380,8 @@ const TrainingDashboard = () => {
       </Animated.View>
 
       <Modal visible={detailModalVisible} animationType="slide" transparent onRequestClose={() => setDetailModalVisible(false)}>
-          <TouchableOpacity 
-            style={styles.modalBackground} 
-            activeOpacity={1} 
-            onPressOut={() => setDetailModalVisible(false)}
-          >
-              <TouchableOpacity activeOpacity={1} style={styles.modalContainer}>
+          <Pressable style={styles.modalBackground} onPress={() => setDetailModalVisible(false)}>
+              <Pressable style={styles.modalContainer} onPress={(e) => e.stopPropagation()}>
                   {selectedWorkout && (
                       <>
                         <View style={styles.modalHeader}>
@@ -277,7 +391,7 @@ const TrainingDashboard = () => {
                                     {new Date(selectedWorkout.scheduled_date).toDateString()}
                                 </Text>
                             </View>
-                            
+
                             <View style={{flexDirection: 'row', gap: 15, alignItems: 'center'}}>
                                 <TouchableOpacity onPress={() => handleDeleteWorkout(selectedWorkout.id)}>
                                     <Ionicons name="trash-outline" size={26} color="#e74c3c" />
@@ -289,40 +403,115 @@ const TrainingDashboard = () => {
                             </View>
                         </View>
 
-                        <ScrollView style={{marginTop: 15}} showsVerticalScrollIndicator={false}>
-                            {
-                                (typeof selectedWorkout.exercises === 'string' 
-                                    ? JSON.parse(selectedWorkout.exercises) 
-                                    : selectedWorkout.exercises
-                                ).map((exo: any, index: number) => (
-                                <View key={index} style={styles.detailRow}>
+                        <ScrollView style={{marginTop: 15}} showsVerticalScrollIndicator={false} keyboardDismissMode="on-drag">
+                            {editExercises.map((exo: any, exoIdx: number) => {
+                                const isDur = isDurationExercise(exo);
+                                return (
+                                  <View key={exo._id || exoIdx} style={styles.detailRow}>
                                     <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 8}}>
-                                        <Text style={styles.detailExoName}>{index+1}. {exo.name}</Text>
+                                        <Text style={styles.detailExoName}>{exoIdx+1}. {exo.name}</Text>
                                         <View style={styles.muscleBadge}>
                                             <Text style={styles.detailMuscle}>{exo.muscle}</Text>
                                         </View>
+                                        <View style={{flex: 1}} />
+                                        <TouchableOpacity onPress={() => removeExercise(exoIdx)} style={{padding: 4}}>
+                                            <Ionicons name="trash-outline" size={20} color="#e74c3c" />
+                                        </TouchableOpacity>
                                     </View>
-                                    
+
+                                    {/* Sets header */}
+                                    <View style={{flexDirection: 'row', paddingHorizontal: 8, marginBottom: 4}}>
+                                      <Text style={{color: '#888', fontSize: 11, width: 35}}>Set</Text>
+                                      <Text style={{color: '#888', fontSize: 11, flex: 1, textAlign: 'center'}}>{isDur ? 'Time (s)' : 'Reps'}</Text>
+                                      {!isDur && <Text style={{color: '#888', fontSize: 11, flex: 1, textAlign: 'center'}}>Weight (kg)</Text>}
+                                      <View style={{width: 28}} />
+                                    </View>
+
                                     <View style={styles.setsContainer}>
-                                        {safeParseSets(exo.sets_details).map((s: any, i: number) => (
-                                            <View key={i} style={styles.setRow}>
-                                                <Text style={styles.setNumber}>Set {s.set_number}</Text>
-                                                <View style={styles.setValues}>
-                                                    <Text style={styles.setValueText}>
-                                                        {s.duration > 0 ? `${s.duration}s` : `${s.reps} reps`}
-                                                    </Text>
-                                                    {s.weight > 0 && <Text style={styles.setWeightText}>{s.weight} kg</Text>}
+                                        {(exo.sets_details || []).map((s: any, setIdx: number) => (
+                                            <View key={setIdx} style={styles.editSetRow}>
+                                                <Text style={styles.setNumber}>S{setIdx + 1}</Text>
+                                                <View style={{flex: 1, paddingHorizontal: 4}}>
+                                                  <TextInput
+                                                    style={styles.editSetInput}
+                                                    keyboardType="numeric"
+                                                    value={String(isDur ? (s.duration || 0) : (s.reps || 0))}
+                                                    onChangeText={(v) => updateSetField(exoIdx, setIdx, isDur ? 'duration' : 'reps', v)}
+                                                  />
                                                 </View>
+                                                {!isDur && (
+                                                  <View style={{flex: 1, paddingHorizontal: 4}}>
+                                                    <TextInput
+                                                      style={styles.editSetInput}
+                                                      keyboardType="numeric"
+                                                      value={String(s.weight || 0)}
+                                                      onChangeText={(v) => updateSetField(exoIdx, setIdx, 'weight', v)}
+                                                    />
+                                                  </View>
+                                                )}
+                                                <TouchableOpacity onPress={() => removeSetFromExercise(exoIdx, setIdx)} style={{width: 28, alignItems: 'center'}}>
+                                                    <Ionicons name="close-circle" size={18} color="#e74c3c" />
+                                                </TouchableOpacity>
                                             </View>
                                         ))}
+                                        <TouchableOpacity onPress={() => addSetToExercise(exoIdx)} style={{alignSelf: 'center', paddingVertical: 6}}>
+                                            <Text style={{color: '#3498DB', fontWeight: 'bold', fontSize: 13}}>+ Add Set</Text>
+                                        </TouchableOpacity>
                                     </View>
-                                </View>
-                            ))}
+                                  </View>
+                                );
+                            })}
+
+                            {/* Add exercise button */}
+                            <TouchableOpacity style={styles.addExoBtn} onPress={openAddExoModal}>
+                                <Ionicons name="add-circle-outline" size={20} color="#3498DB" />
+                                <Text style={{color: '#3498DB', fontWeight: 'bold', marginLeft: 8}}>Add Exercise</Text>
+                            </TouchableOpacity>
+
+                            <View style={{height: 20}} />
                         </ScrollView>
+
+                        {/* Save button */}
+                        <TouchableOpacity style={styles.saveWorkoutBtn} onPress={handleSaveWorkout} disabled={saving}>
+                            {saving ? <ActivityIndicator color="white" /> : (
+                              <Text style={{color: 'white', fontWeight: 'bold', fontSize: 16}}>Save Changes</Text>
+                            )}
+                        </TouchableOpacity>
                       </>
                   )}
-              </TouchableOpacity>
-          </TouchableOpacity>
+              </Pressable>
+          </Pressable>
+      </Modal>
+
+      {/* Add exercise modal */}
+      <Modal visible={addExoModalVisible} animationType="slide" onRequestClose={() => setAddExoModalVisible(false)}>
+          <View style={styles.addExoModalContainer}>
+              <View style={styles.addExoModalHeader}>
+                  {addExoStep === 'exercises' ? (
+                      <TouchableOpacity onPress={() => { setAddExoStep('muscles'); setAddExoListData(getUniqueMuscles()); }} style={{flexDirection: 'row', alignItems: 'center'}}>
+                          <Ionicons name="chevron-back" size={24} color="#3498DB" />
+                          <Text style={{color: '#3498DB', fontSize: 16}}>Back</Text>
+                      </TouchableOpacity>
+                  ) : <View style={{width: 50}} />}
+                  <Text style={{color: 'white', fontSize: 18, fontWeight: 'bold'}}>{addExoStep === 'muscles' ? 'Select Muscle' : 'Select Exercise'}</Text>
+                  <TouchableOpacity onPress={() => setAddExoModalVisible(false)}>
+                      <Text style={{color: '#3498DB', fontSize: 16, fontWeight: 'bold'}}>Close</Text>
+                  </TouchableOpacity>
+              </View>
+              <FlatList
+                  data={addExoListData}
+                  keyExtractor={(_, index) => index.toString()}
+                  renderItem={({item}) => (
+                      <TouchableOpacity
+                        style={styles.addExoModalItem}
+                        onPress={() => addExoStep === 'muscles' ? handleAddExoSelectMuscle(item) : handleAddExoSelect(item)}
+                      >
+                          <Text style={{color: 'white', fontSize: 16}}>{typeof item === 'string' ? item.toUpperCase() : item.name}</Text>
+                          <Ionicons name="chevron-forward" size={20} color="#666" />
+                      </TouchableOpacity>
+                  )}
+              />
+          </View>
       </Modal>
 
     </View>
@@ -372,10 +561,19 @@ const styles = StyleSheet.create({
   
   setsContainer: { backgroundColor: '#232D3F', borderRadius: 8, padding: 10, marginTop: 5 },
   setRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 },
-  setNumber: { color: '#888', fontSize: 13, fontWeight: 'bold' },
+  setNumber: { color: '#888', fontSize: 13, fontWeight: 'bold', width: 35 },
   setValues: { flexDirection: 'row', alignItems: 'center' },
   setValueText: { color: 'white', fontSize: 14, fontWeight: 'bold', width: 70, textAlign: 'right' },
-  setWeightText: { color: '#3498DB', fontSize: 14, fontWeight: 'bold', marginLeft: 10, width: 60, textAlign: 'right' }
+  setWeightText: { color: '#3498DB', fontSize: 14, fontWeight: 'bold', marginLeft: 10, width: 60, textAlign: 'right' },
+
+  editSetRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
+  editSetInput: { backgroundColor: '#1A1F2B', color: 'white', paddingVertical: 6, borderRadius: 6, textAlign: 'center', fontSize: 14 },
+  addExoBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderWidth: 1, borderColor: '#3498DB', borderStyle: 'dashed', borderRadius: 10, marginTop: 10 },
+  saveWorkoutBtn: { backgroundColor: '#2ecc71', padding: 14, borderRadius: 10, alignItems: 'center', marginTop: 10 },
+
+  addExoModalContainer: { flex: 1, backgroundColor: '#1A1F2B' },
+  addExoModalHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, borderColor: '#2A4562', alignItems: 'center' },
+  addExoModalItem: { padding: 20, borderBottomWidth: 1, borderColor: '#2A4562', flexDirection: 'row', justifyContent: 'space-between' },
 });
 
 export default TrainingDashboard;

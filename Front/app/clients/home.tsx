@@ -37,6 +37,7 @@ const HomeScreen = () => {
   const [dashboardStats, setDashboardStats] = useState<any>(null);
   const [loadingStats, setLoadingStats] = useState(true);
   const [myMeals, setMyMeals] = useState<any[]>([]);
+  const [caloriesBurned, setCaloriesBurned] = useState<any>(null);
 
   // --- STATE MODIF OBJECTIF ---
   const [isGoalModalVisible, setIsGoalModalVisible] = useState(false);
@@ -101,7 +102,8 @@ const HomeScreen = () => {
       setUser(session);
       await Promise.all([
           fetchMeals(session.id),
-          fetchDashboardStats(session.id)
+          fetchDashboardStats(session.id),
+          fetchCaloriesBurned()
       ]);
     }
     setLoadingStats(false);
@@ -119,12 +121,21 @@ const HomeScreen = () => {
   const fetchMeals = async (userId: number) => {
     try {
       const response = await api.get(`/users/get_daily_meals/${userId}`);
-      const sorted = response.data.meals.sort((a: any, b: any) => 
+      const sorted = response.data.meals.sort((a: any, b: any) =>
         new Date(a.hourtime).getTime() - new Date(b.hourtime).getTime()
       );
       setMyMeals(sorted);
     } catch (error) {
       console.log("Error meals:", error);
+    }
+  };
+
+  const fetchCaloriesBurned = async () => {
+    try {
+      const res = await api.get('/workouts/calories-burned');
+      setCaloriesBurned(res.data);
+    } catch (error) {
+      console.log("Error calories burned:", error);
     }
   };
 
@@ -515,6 +526,34 @@ const HomeScreen = () => {
           </View>
       )}
 
+      {/* CALORIES BURNED */}
+      <TouchableOpacity
+        style={styles.caloriesBurnedCard}
+        onPress={() => router.push('/clients/trainings')}
+        activeOpacity={0.7}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+          <View style={styles.fireIconContainer}>
+            <Ionicons name="flame" size={22} color="#e74c3c" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: '#aaa', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 }}>Calories Burned Today</Text>
+            <Text style={{ color: 'white', fontSize: 22, fontWeight: 'bold', marginTop: 2 }}>
+              {caloriesBurned ? caloriesBurned.calories_burned : 0} <Text style={{ color: '#aaa', fontSize: 13, fontWeight: 'normal' }}>kcal</Text>
+            </Text>
+          </View>
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={{ color: '#888', fontSize: 11 }}>
+              {caloriesBurned ? caloriesBurned.workout_count : 0} workout{(caloriesBurned?.workout_count ?? 0) !== 1 ? 's' : ''}
+            </Text>
+            <Text style={{ color: '#888', fontSize: 11 }}>
+              {caloriesBurned ? caloriesBurned.exercise_count : 0} exercise{(caloriesBurned?.exercise_count ?? 0) !== 1 ? 's' : ''}
+            </Text>
+            <Ionicons name="chevron-forward" size={16} color="#3498DB" style={{ marginTop: 4 }} />
+          </View>
+        </View>
+      </TouchableOpacity>
+
       {invitations.length > 0 && (
         <View style={styles.invitationContainer}>
           <Text style={styles.invitationTitle}>New Coaching Requests ({invitations.length})</Text>
@@ -553,6 +592,10 @@ const HomeScreen = () => {
 
       <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginVertical: 10}}>
           <Text style={styles.catalogueTitle}>Today's Meals</Text>
+          <TouchableOpacity style={styles.newMealButton} onPress={() => { resetForm(); setIsModalVisible(true); }}>
+            <Ionicons name="restaurant-outline" size={16} color="#fff" />
+            <Text style={styles.newMealButtonText}>New Meal</Text>
+          </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.mealsContainer} showsVerticalScrollIndicator={false} keyboardDismissMode="on-drag">
@@ -560,12 +603,8 @@ const HomeScreen = () => {
         {myMeals.map((meal, index) => (
             <MealCard key={index} meal={meal} onToggleEat={handleToggleEat} onView={handleView} onEdit={handleEdit}/>
         ))}
-        <View style={{ height: 80 }} />
+        <View style={{ height: 30 }} />
       </ScrollView>
-
-      <TouchableOpacity style={styles.addButton} onPress={() => { resetForm(); setIsModalVisible(true); }}>
-        <Ionicons name="add" size={30} color="#fff" />
-      </TouchableOpacity>
 
       <Modal visible={isModalVisible} animationType="slide" transparent onRequestClose={handleCloseModal}>
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={Keyboard.dismiss}>
@@ -865,6 +904,8 @@ const styles = StyleSheet.create({
   macroItem: { width: '30%', backgroundColor: '#2A4562', padding: 8, borderRadius: 8, alignItems: 'center' },
   macroValue: { color: 'white', fontWeight: 'bold', fontSize: 16 },
   macroLabel: { color: '#ccc', fontSize: 10 },
+  caloriesBurnedCard: { backgroundColor: '#232D3F', borderRadius: 16, padding: 15, marginBottom: 10, borderLeftWidth: 4, borderLeftColor: '#e74c3c' },
+  fireIconContainer: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(231,76,60,0.15)', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
   catalogueTitle: { color: '#FFFFFF', fontSize: 18, fontWeight: 'bold' },
   mealsContainer: { flex: 1 },
   invitationContainer: { marginVertical: 10 },
@@ -875,7 +916,8 @@ const styles = StyleSheet.create({
   invitationText: { color: 'white', fontSize: 14 },
   coachCityText: { color: '#8A8D91', fontSize: 12, marginTop: 2 },
   viewProfileLink: { color: '#f1c40f', fontSize: 12, marginTop: 4, fontWeight: 'bold' },
-  addButton: { position: 'absolute', bottom: 20, right: 20, backgroundColor: '#3498DB', width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', elevation: 5 },
+  newMealButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#3498DB', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, gap: 6 },
+  newMealButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 13 },
   modalBackground: { flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "center", alignItems: "center" },
   modalContainer: { width: "90%", backgroundColor: "#2A4562", borderRadius: 15, padding: 20, maxHeight: '90%' }, 
   textInput: { backgroundColor: '#1A1F2B', color: 'white', padding: 12, borderRadius: 8 },

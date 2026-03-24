@@ -182,6 +182,31 @@ async def get_my_workouts_route(
     return await get_user_workouts(session, user_id)
 
 
+@router.get("/workouts/calories-burned")
+async def get_calories_burned_route(
+    user_id: int = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_session)
+):
+    return await get_daily_calories_burned(session, user_id)
+
+
+@router.put("/workouts/{workout_id}")
+async def update_workout_route(
+    workout_id: int,
+    workout_data: dict,
+    user_id: int = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_session)
+):
+    from app.schemas import Workout as WorkoutModel
+    result = await session.execute(
+        select(WorkoutModel).where(WorkoutModel.id == workout_id, WorkoutModel.user_id == user_id)
+    )
+    workout = result.scalars().first()
+    if not workout:
+        raise HTTPException(status_code=404, detail="Workout not found or not yours")
+    return await update_full_workout(session, workout_id, workout_data)
+
+
 @router.patch("/workouts/{workout_id}/toggle-complete")
 async def toggle_workout_complete_route(
     workout_id: int,

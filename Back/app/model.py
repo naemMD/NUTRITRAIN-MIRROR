@@ -624,6 +624,112 @@ async def auto_complete_daily_workouts(session: AsyncSession):
 
 
 # ---------------------------------------------------------------------------
+# Calories burned estimation
+# ---------------------------------------------------------------------------
+
+# MET values by muscle group (moderate intensity strength training)
+MUSCLE_MET = {
+    "chest": 6.0,
+    "back": 6.0,
+    "legs": 6.5,
+    "shoulders": 5.0,
+    "arms": 4.5,
+    "abs": 4.0,
+    "cardio": 8.0,
+    "full body": 6.0,
+}
+DEFAULT_MET = 5.0
+
+
+def _estimate_exercise_calories(exercise, user_weight_kg: float) -> float:
+    """
+    Estimate calories burned for a single exercise.
+
+    For strength exercises (reps > 0):
+      active_time = sets × reps × 4s per rep
+      total_time  = active_time + rest between sets
+      calories    = (total_minutes / 60) × MET × weight_kg
+
+    For duration exercises (duration > 0):
+      total_time  = sets × duration
+      calories    = (total_minutes / 60) × MET × weight_kg
+    """
+    met = MUSCLE_MET.get((exercise.muscle or "").lower(), DEFAULT_MET)
+    sets_details = exercise.sets_details or []
+    num_sets = exercise.num_sets or len(sets_details) or 1
+    rest_time = exercise.rest_time or 60
+
+    total_seconds = 0
+
+    if sets_details:
+        for s in sets_details:
+            reps = s.get("reps", 0) or 0
+            duration = s.get("duration", 0) or 0
+            weight = s.get("weight", 0) or 0
+
+            if duration > 0:
+                total_seconds += duration
+            elif reps > 0:
+                # ~4 seconds per rep average (concentric + eccentric + pause)
+                set_time = reps * 4
+                # heavier weights burn slightly more
+                if weight > 0:
+                    set_time *= 1 + (weight / 200)
+                total_seconds += set_time
+
+            total_seconds += rest_time
+    else:
+        # Fallback: estimate 30s per set + rest
+        total_seconds = num_sets * (30 + rest_time)
+
+    total_minutes = total_seconds / 60
+    # MET formula: kcal = MET × weight_kg × time_hours
+    calories = met * user_weight_kg * (total_minutes / 60)
+    return round(calories, 1)
+
+
+async def get_daily_calories_burned(session: AsyncSession, user_id: int):
+    """Get estimated calories burned from completed workouts today."""
+    user = await session.get(Users, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user_weight = user.weight or 70.0  # fallback 70kg
+
+    today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end = today_start + timedelta(days=1)
+
+    result = await session.execute(
+        select(Workout)
+        .where(
+            and_(
+                Workout.user_id == user_id,
+                Workout.scheduled_date >= today_start,
+                Workout.scheduled_date < today_end,
+                Workout.is_completed == True,
+            )
+        )
+        .options(selectinload(Workout.exercises))
+    )
+    workouts = result.scalars().all()
+
+    total_calories = 0.0
+    exercise_count = 0
+    workout_count = len(workouts)
+
+    for w in workouts:
+        for ex in w.exercises:
+            total_calories += _estimate_exercise_calories(ex, user_weight)
+            exercise_count += 1
+
+    return {
+        "calories_burned": round(total_calories),
+        "workout_count": workout_count,
+        "exercise_count": exercise_count,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Coaches
 # ---------------------------------------------------------------------------
 
