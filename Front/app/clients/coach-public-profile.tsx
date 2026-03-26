@@ -21,6 +21,7 @@ const CoachPublicProfile = () => {
   const [pendingRequestId, setPendingRequestId] = useState<number | null>(null); 
   
   const [hasCoach, setHasCoach] = useState(false);
+  const [isMyCoach, setIsMyCoach] = useState(false);
 
   useEffect(() => {
     fetchCoachProfileAndStatus();
@@ -39,6 +40,7 @@ const CoachPublicProfile = () => {
       if (user?.id) {
           const userRes = await api.get(`/users/me/${user.id}`);
           setHasCoach(!!userRes.data.coach_id);
+          setIsMyCoach(userRes.data.coach_id === Number(coachId));
       }
 
       const response = await api.get(`/coaches/${coachId}/public-profile`);
@@ -165,6 +167,29 @@ const CoachPublicProfile = () => {
     );
   };
 
+  const handleUnassignCoach = () => {
+    crossAlert(
+      "Leave Coach",
+      "Do you really want to unassign from this coach?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Unassign",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await api.delete(`/users/me/coach`);
+              Toast.show({ type: 'success', text1: 'Coach unassigned' });
+              router.push('/clients/coach');
+            } catch (error) {
+              Toast.show({ type: 'error', text1: 'Failed to unassign coach' });
+            }
+          }
+        }
+      ]
+    );
+  };
+
   if (loading) return <ActivityIndicator size="large" color="#3498DB" style={{ flex: 1, backgroundColor: '#1A1F2B' }} />;
 
   return (
@@ -242,26 +267,33 @@ const CoachPublicProfile = () => {
                 </TouchableOpacity>
             </View>
         ) : (
-            <TouchableOpacity 
-                style={[
-                    styles.requestButton, 
-                    hasCoach ? { backgroundColor: '#2A4562' } : null,
-                    sendingRequest && { opacity: 0.7 }
-                ]} 
-                onPress={handleRequestCoaching}
-                disabled={sendingRequest}
-            >
-                {sendingRequest ? (
-                    <ActivityIndicator color="white" />
-                ) : (
-                    <>
-                        <Ionicons name={hasCoach ? "lock-closed" : "paper-plane"} size={20} color={hasCoach ? "#8A8D91" : "white"} style={{ marginRight: 10 }} />
-                        <Text style={[styles.requestButtonText, hasCoach && { color: '#8A8D91' }]}>
-                            {hasCoach ? "Already Assigned" : "Request Coaching"}
-                        </Text>
-                    </>
-                )}
-            </TouchableOpacity>
+            isMyCoach ? (
+              <TouchableOpacity style={styles.unassignButton} onPress={handleUnassignCoach}>
+                <Ionicons name="exit-outline" size={20} color="#E74C3C" style={{ marginRight: 10 }} />
+                <Text style={styles.unassignButtonText}>Unassign Coach</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                  style={[
+                      styles.requestButton,
+                      hasCoach ? { backgroundColor: '#2A4562' } : null,
+                      sendingRequest && { opacity: 0.7 }
+                  ]}
+                  onPress={handleRequestCoaching}
+                  disabled={sendingRequest}
+              >
+                  {sendingRequest ? (
+                      <ActivityIndicator color="white" />
+                  ) : (
+                      <>
+                          <Ionicons name={hasCoach ? "lock-closed" : "paper-plane"} size={20} color={hasCoach ? "#8A8D91" : "white"} style={{ marginRight: 10 }} />
+                          <Text style={[styles.requestButtonText, hasCoach && { color: '#8A8D91' }]}>
+                              {hasCoach ? "Already Assigned" : "Request Coaching"}
+                          </Text>
+                      </>
+                  )}
+              </TouchableOpacity>
+            )
         )
       )}
       
@@ -272,8 +304,8 @@ const CoachPublicProfile = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#1A1F2B', paddingHorizontal: 20 },
-  backButton: { marginBottom: 15, marginTop: 10 },
-  profileHeader: { alignItems: 'center', marginBottom: 30 },
+  backButton: { marginBottom: 8, marginTop: 5 },
+  profileHeader: { alignItems: 'center', marginBottom: 20 },
   avatarLarge: { width: 100, height: 100, borderRadius: 50, backgroundColor: '#3498DB', justifyContent: 'center', alignItems: 'center', marginBottom: 15 },
   avatarText: { fontSize: 40, color: 'white', fontWeight: 'bold' },
   name: { fontSize: 24, fontWeight: 'bold', color: 'white', marginBottom: 5 },
@@ -300,7 +332,10 @@ const styles = StyleSheet.create({
   pendingRow: { flexDirection: 'row', marginTop: 20, gap: 10 },
   pendingBadge: { flex: 1, flexDirection: 'row', backgroundColor: '#2A4562', padding: 18, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
   pendingBadgeText: { color: '#8A8D91', fontWeight: 'bold', fontSize: 16 },
-  cancelBtn: { backgroundColor: 'rgba(231, 76, 60, 0.1)', paddingHorizontal: 20, borderRadius: 12, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#E74C3C' }
+  cancelBtn: { backgroundColor: 'rgba(231, 76, 60, 0.1)', paddingHorizontal: 20, borderRadius: 12, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#E74C3C' },
+
+  unassignButton: { flexDirection: 'row', backgroundColor: 'rgba(231, 76, 60, 0.1)', padding: 18, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginTop: 20, borderWidth: 1, borderColor: '#E74C3C' },
+  unassignButtonText: { color: '#E74C3C', fontWeight: 'bold', fontSize: 18 },
 });
 
 export default CoachPublicProfile;

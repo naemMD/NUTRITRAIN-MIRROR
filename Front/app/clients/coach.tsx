@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -27,6 +27,7 @@ const CoachScreen = () => {
   const [loading, setLoading] = useState(true);
   const [aiCoachName, setAiCoachName] = useState('AI Coach');
   const [aiCoachColor, setAiCoachColor] = useState('#F39C12');
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const loadData = async () => {
     try {
@@ -72,6 +73,19 @@ const CoachScreen = () => {
       setLoading(false);
     }
   };
+
+  const fetchUnreadCount = useCallback(async () => {
+    try {
+      const res = await api.get("/messages/unread-count");
+      setUnreadCount(res.data.unread_count || 0);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    fetchUnreadCount();
+    const interval = setInterval(fetchUnreadCount, 10000);
+    return () => clearInterval(interval);
+  }, [fetchUnreadCount]);
 
   useFocusEffect(
     useCallback(() => {
@@ -159,9 +173,14 @@ const CoachScreen = () => {
                     </TouchableOpacity>
 
                     <View style={styles.actionRow}>
-                        <TouchableOpacity style={styles.actionBtnPrimary} onPress={() => router.push({ pathname: "/chat/[id]", params: { id: myCoach.id, name: myCoach.firstname } })}>
+                        <TouchableOpacity style={[styles.actionBtnPrimary, { position: 'relative' }]} onPress={() => router.push({ pathname: "/chat/[id]", params: { id: myCoach.id, name: myCoach.firstname } })}>
                             <Ionicons name="chatbubble-ellipses" size={20} color="white" style={{marginRight: 8}} />
-                            <Text style={styles.actionBtnText}>Chat</Text>
+                            <Text style={styles.actionBtnText}>{myCoach.firstname}</Text>
+                            {unreadCount > 0 && (
+                              <View style={styles.chatBadge}>
+                                <Text style={styles.chatBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+                              </View>
+                            )}
                         </TouchableOpacity>
                         <TouchableOpacity style={[styles.actionBtnAI, { backgroundColor: aiCoachColor }]} onPress={() => router.push('/chat/ai-coach')}>
                             <Ionicons name="sparkles" size={20} color="white" style={{marginRight: 8}} />
@@ -279,6 +298,8 @@ const styles = StyleSheet.create({
   actionBtnPrimary: { flex: 1, backgroundColor: '#3498DB', paddingVertical: 14, borderRadius: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
   actionBtnAI: { flex: 1, paddingVertical: 14, borderRadius: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
   actionBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+  chatBadge: { position: 'absolute', top: -6, right: -6, backgroundColor: '#E74C3C', borderRadius: 10, minWidth: 20, height: 20, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4 },
+  chatBadgeText: { color: 'white', fontSize: 11, fontWeight: 'bold' },
 
   unassignButton: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 15, marginHorizontal: 16, borderRadius: 12, backgroundColor: 'rgba(231, 76, 60, 0.1)' },
   unassignText: { color: '#e74c3c', fontWeight: 'bold', fontSize: 16 },
