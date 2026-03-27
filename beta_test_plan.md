@@ -1,6 +1,6 @@
-Title: Beta Test Plan – NutriTrain
+Title: Beta Test Plan – Straple
 
-Author: NutriTrain Team
+Author: Straple Team
 
 Module: G-EIP-700
 
@@ -8,7 +8,7 @@ version: 1.0
 
 # 1. Project context
 
-NutriTrain is a mobile application designed to help fitness practitioners better understand, track, and optimize their training and nutrition. The project targets beginners, experienced athletes, and coaches by centralizing essential functionalities such as exercise tracking, muscle visualization, basic nutritional information, and personalized profiles.
+Straple is a mobile application designed to help fitness practitioners better understand, track, and optimize their training and nutrition. The project targets beginners, experienced athletes, and coaches by centralizing essential functionalities such as exercise tracking, muscle visualization, basic nutritional information, and personalized profiles.
 
 The beta version focuses on validating the core value proposition: allowing a user to create an account, manage their profile, log training sessions, visualize stimulated muscles on a body avatar, and search for exercises and foods via external APIs. This beta aims to demonstrate usability, stability, and relevance of the MVP features during the Greenlight defense.
 

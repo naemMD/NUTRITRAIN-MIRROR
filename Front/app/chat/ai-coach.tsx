@@ -480,7 +480,7 @@ const AiCoachScreen = () => {
                   <Ionicons name="sparkles" size={60} color={accentColor} />
                   <Text style={styles.emptyTitle}>Welcome!</Text>
                   <Text style={styles.emptyText}>
-                    I'm your NutriTrain AI Coach.{'\n'}
+                    I'm your Straple AI Coach.{'\n'}
                     Ask me anything about nutrition,{'\n'}
                     training, or get personalized advice!
                   </Text>

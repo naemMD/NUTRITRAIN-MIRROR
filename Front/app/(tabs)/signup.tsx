@@ -245,10 +245,12 @@ const SignupPage = () => {
           <TouchableOpacity onPress={() => navigation.back()}>
             <Ionicons name="arrow-back" size={28} color="#3498DB" />
           </TouchableOpacity>
-          <Text style={styles.appName}>
-            <Text style={styles.appNameBlue}>NUTRI</Text>
-            <Text style={styles.appNameWhite}>TRAIN</Text>
-          </Text>
+          <View style={{ alignItems: 'center' }}>
+            <Text style={styles.appName}>
+              <Text style={styles.appNameWhite}>STRAPLE</Text>
+            </Text>
+            <Text style={{ color: '#888', fontSize: 9, letterSpacing: 2 }}>TRAIN SMART, LIVE STRONG</Text>
+          </View>
           <TouchableOpacity style={styles.testButton} onPress={testServerConnection}>
             <Ionicons name="server-outline" size={24} color="#3498DB" />
           </TouchableOpacity>

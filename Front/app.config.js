@@ -1,7 +1,7 @@
 export default {
   expo: {
-    name: "NutriTrain",
-    slug: "NutriTrain",
+    name: "Straple",
+    slug: "Straple",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/images/icon.png",

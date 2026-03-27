@@ -1,13 +1,27 @@
 import { Stack, router, useSegments } from "expo-router";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useState, useEffect, useCallback } from "react";
 import api from "../../services/api";
+import { getToken } from "../../services/authStorage";
 
 export default function ClientLayout() {
   const segments = useSegments();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const token = await getToken();
+      if (!token) {
+        router.replace("/(tabs)/login");
+        return;
+      }
+      setAuthChecked(true);
+    };
+    checkAuth();
+  }, []);
 
   const fetchUnreadCount = useCallback(async () => {
     try {
@@ -17,18 +31,27 @@ export default function ClientLayout() {
   }, []);
 
   useEffect(() => {
+    if (!authChecked) return;
     fetchUnreadCount();
     const interval = setInterval(fetchUnreadCount, 10000);
     return () => clearInterval(interval);
-  }, [fetchUnreadCount]);
+  }, [authChecked, fetchUnreadCount]);
+
+  if (!authChecked) {
+    return (
+      <View style={{ flex: 1, backgroundColor: "#0D1117", justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#3498DB" />
+      </View>
+    );
+  }
   
   // 🔥 On récupère LE nom exact de la page actuelle (ex: "search-coach")
   const currentPage = segments[segments.length - 1];
 
-  // Pages où le header NUTRITRAIN a juste une flèche retour
+  // Pages où le header STRAPLE a juste une flèche retour
   const isSpecialPage = currentPage === "profile" || currentPage === "subscription";
 
-  // 🔥 Pages 100% custom : On CACHE complètement le header NUTRITRAIN et le Footer
+  // 🔥 Pages 100% custom : On CACHE complètement le header STRAPLE et le Footer
   const hideGlobalElements = 
     currentPage === "search-coach" || 
     currentPage === "map-search" || 
@@ -38,7 +61,7 @@ export default function ClientLayout() {
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={{ flex: 1, backgroundColor: "#0D1117" }}>
 
-        {/* --- HEADER NUTRITRAIN (Caché sur la recherche et les profils) --- */}
+        {/* --- HEADER STRAPLE (Caché sur la recherche et les profils) --- */}
         {!hideGlobalElements && (
           <View style={styles.header}>
             
@@ -54,10 +77,12 @@ export default function ClientLayout() {
               </TouchableOpacity>
             )}
 
-            <Text style={styles.appName}>
-              <Text style={styles.appNameBlue}>NUTRI</Text>
-              <Text style={styles.appNameWhite}>TRAIN</Text>
-            </Text>
+            <View style={{ alignItems: 'center' }}>
+              <Text style={styles.appName}>
+                <Text style={styles.appNameWhite}>STRAPLE</Text>
+              </Text>
+              <Text style={{ color: '#888', fontSize: 9, letterSpacing: 2 }}>TRAIN SMART, LIVE STRONG</Text>
+            </View>
 
             {isSpecialPage ? (
               <View style={{ width: 30 }} />

@@ -1,8 +1,8 @@
-# 🏋️‍♂️ NutriTrain – Votre coach intelligent pour un suivi sportif optimal
+# 🏋️‍♂️ Straple – Votre coach intelligent pour un suivi sportif optimal
 
-![NutriTrain Logo](Assets/Logo_Nutritrain.png)  
+![Straple Logo](Assets/Logo_Nutritrain.png)  
 
-**NutriTrain** est une application innovante qui optimise votre entraînement et votre nutrition grâce à l'intelligence artificielle. Elle aide les sportifs de tous niveaux à **suivre leur progression, adapter leurs entraînements en cas de blessure, gérer leur nutrition et interagir avec leur coach**.
+**Straple** est une application innovante qui optimise votre entraînement et votre nutrition grâce à l'intelligence artificielle. Elle aide les sportifs de tous niveaux à **suivre leur progression, adapter leurs entraînements en cas de blessure, gérer leur nutrition et interagir avec leur coach**.
 
 ---
 
@@ -18,19 +18,19 @@
 
 ## 📸 Aperçu de l'application  
 
-![NutriTrain Maquette](Assets/image.png)   
+![Straple Maquette](Assets/image.png)   
 
 ---
 
-## 🎯 Pourquoi utiliser NutriTrain ?  
+## 🎯 Pourquoi utiliser Straple ?  
 
-📉 **Évitez l’abandon** : 50% des nouveaux pratiquants arrêtent par manque de résultats, **NutriTrain vous garde motivé**.  
+📉 **Évitez l’abandon** : 50% des nouveaux pratiquants arrêtent par manque de résultats, **Straple vous garde motivé**.  
 🔍 **Précision et adaptation** : Grâce à une IA développée avec des professionnels de la santé.  
 🛠 **Un tout-en-un** : Plus besoin d’utiliser plusieurs applications pour le sport, la nutrition et le coaching.  
 
 ---
 
-## 🏆 Pour qui est NutriTrain ?  
+## 🏆 Pour qui est Straple ?  
 
 - **Sportifs débutants** 🎽 : Pour structurer leur entraînement et améliorer leur nutrition.  
 - **Sportifs intermédiaires** 🏋️ : Pour optimiser leurs performances et progresser.  
@@ -53,4 +53,4 @@
 - 📧 **Naem Meddour** - naem.meddour@epitech.eu
 - 📧 **Rayan Bahri** - rayan.bahri@epitech.eu
 
-## 🚀 Prêt à booster votre progression avec NutriTrain ? 🔥
+## 🚀 Prêt à booster votre progression avec Straple ? 🔥

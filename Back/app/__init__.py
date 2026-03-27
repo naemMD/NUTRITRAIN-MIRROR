@@ -22,7 +22,7 @@ def create_app():
     origins = [
         "http://localhost",
         "http://localhost:8081",
-        "https://nutritrain-mirror.vercel.app"
+        "https://straple-mirror.vercel.app"
     ]
 
     app.add_middleware(

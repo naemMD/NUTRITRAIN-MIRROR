@@ -1,13 +1,27 @@
 import { Stack, router, usePathname } from "expo-router";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useState, useEffect, useCallback } from "react";
 import api from "../../services/api";
+import { getToken } from "../../services/authStorage";
 
 export default function CoachLayout() {
   const pathname = usePathname();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const token = await getToken();
+      if (!token) {
+        router.replace("/(tabs)/login");
+        return;
+      }
+      setAuthChecked(true);
+    };
+    checkAuth();
+  }, []);
 
   const fetchUnreadCount = useCallback(async () => {
     try {
@@ -17,10 +31,19 @@ export default function CoachLayout() {
   }, []);
 
   useEffect(() => {
+    if (!authChecked) return;
     fetchUnreadCount();
     const interval = setInterval(fetchUnreadCount, 10000);
     return () => clearInterval(interval);
-  }, [fetchUnreadCount]);
+  }, [authChecked, fetchUnreadCount]);
+
+  if (!authChecked) {
+    return (
+      <View style={{ flex: 1, backgroundColor: "#0D1117", justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#3498DB" />
+      </View>
+    );
+  }
 
   // 🔥 On ajoute "client-details" ici pour masquer le footer
   const isSpecialPage =
@@ -28,7 +51,7 @@ export default function CoachLayout() {
     pathname === "/coachs/subscription" ||
     pathname === "/coachs/client-details";
 
-  // 🔥 On crée une variable spécifique pour les pages qui ne doivent avoir AUCUN header (NutriTrain)
+  // 🔥 On crée une variable spécifique pour les pages qui ne doivent avoir AUCUN header (Straple)
   const hideGlobalHeader = pathname === "/coachs/client-details";
 
   return (
@@ -53,10 +76,12 @@ export default function CoachLayout() {
             )}
 
             {/* TITLE */}
-            <Text style={styles.appName}>
-              <Text style={styles.appNameBlue}>NUTRI</Text>
-              <Text style={styles.appNameWhite}>TRAIN</Text>
-            </Text>
+            <View style={{ alignItems: 'center' }}>
+              <Text style={styles.appName}>
+                <Text style={styles.appNameWhite}>STRAPLE</Text>
+              </Text>
+              <Text style={{ color: '#888', fontSize: 9, letterSpacing: 2 }}>TRAIN SMART, LIVE STRONG</Text>
+            </View>
 
             {/* RIGHT SIDE: Subscription Star */}
             {isSpecialPage ? (

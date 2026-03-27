@@ -100,10 +100,12 @@ const LoginPage = () => {
           <TouchableOpacity onPress={() => navigation.back()} style={{width: 38}}>
             <Ionicons name="arrow-back" size={28} color="#3498DB" />
           </TouchableOpacity>
-          <Text style={styles.appName}>
-            <Text style={styles.appNameBlue}>NUTRI</Text>
-            <Text style={styles.appNameWhite}>TRAIN</Text>
-          </Text>
+          <View style={{ alignItems: 'center' }}>
+            <Text style={styles.appName}>
+              <Text style={styles.appNameWhite}>STRAPLE</Text>
+            </Text>
+            <Text style={{ color: '#888', fontSize: 9, letterSpacing: 2 }}>TRAIN SMART, LIVE STRONG</Text>
+          </View>
           <View style={{width: 38}} />
         </View>
         

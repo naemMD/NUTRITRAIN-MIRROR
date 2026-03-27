@@ -117,13 +117,13 @@ async def leave_coach(
 
 # -- Chemins semi-fixes (préfixe fixe + param dynamique en fin)
 @router.get("/users/get_daily_meals/{user_id}")
-async def get_daily_meals(user_id: int, session: AsyncSession = Depends(get_session)):
+async def get_daily_meals(user_id: int, current_user: int = Depends(get_current_user_id), session: AsyncSession = Depends(get_session)):
     return await get_meals_by_user(session, user_id)
 
 
 # -- Chemins dynamiques (/users/{id}/...)  — après tous les fixes
 @router.get("/users/me/{user_id}")
-async def get_current_user(user_id: int, session: AsyncSession = Depends(get_session)):
+async def get_current_user(user_id: int, current_user: int = Depends(get_current_user_id), session: AsyncSession = Depends(get_session)):
     return await get_user_by_id(session, user_id)
 
 
@@ -131,13 +131,14 @@ async def get_current_user(user_id: int, session: AsyncSession = Depends(get_ses
 async def update_user_goals_route(
     user_id: int,
     goal_data: MacroUpdate,
+    current_user: int = Depends(get_current_user_id),
     session: AsyncSession = Depends(get_session)
 ):
     return await update_user_macro_goals(session, user_id, goal_data)
 
 
 @router.put("/users/{client_id}/assign-coach/{coach_id}")
-async def assign_coach(client_id: int, coach_id: int, session: AsyncSession = Depends(get_session)):
+async def assign_coach(client_id: int, coach_id: int, current_user: int = Depends(get_current_user_id), session: AsyncSession = Depends(get_session)):
     return await assign_coach_to_client(session, client_id, coach_id)
 
 
@@ -146,13 +147,13 @@ async def assign_coach(client_id: int, coach_id: int, session: AsyncSession = De
 # ---------------------------------------------------------------------------
 
 @router.post("/addMeal/{userId}")
-async def add_meal(userId: int, request: Request, session: AsyncSession = Depends(get_session)):
+async def add_meal(userId: int, request: Request, current_user: int = Depends(get_current_user_id), session: AsyncSession = Depends(get_session)):
     mealData = await request.json()
     return await create_meal(session, userId, mealData)
 
 
 @router.put("/updateMeal/{meal_id}")
-async def updateMeal(meal_id: int, request: Request, session: AsyncSession = Depends(get_session)):
+async def updateMeal(meal_id: int, request: Request, current_user: int = Depends(get_current_user_id), session: AsyncSession = Depends(get_session)):
     mealData = await request.json()
     return await update_meal(session, meal_id, mealData)
 
@@ -167,7 +168,7 @@ async def toggle_meal_consume_route(
 
 
 @router.delete("/deleteMeal/{meal_id}")
-async def deleteMeal(meal_id: int, request: Request, session: AsyncSession = Depends(get_session)):
+async def deleteMeal(meal_id: int, request: Request, current_user: int = Depends(get_current_user_id), session: AsyncSession = Depends(get_session)):
     return await delete_meal(session, meal_id)
 
 
@@ -494,27 +495,27 @@ async def get_ai_remaining(
 # ---------------------------------------------------------------------------
 
 @router.get("/getMuscles/")
-async def get_muscles_from_api(session: AsyncSession = Depends(get_session)):
+async def get_muscles_from_api(current_user: int = Depends(get_current_user_id), session: AsyncSession = Depends(get_session)):
     return get_muscles()
 
 
 @router.get("/getAlimentNutriment/{code}/{quantity}")
-async def get_aliment_nutriment(code: str, quantity: int, session: AsyncSession = Depends(get_session)):
+async def get_aliment_nutriment(code: str, quantity: int, current_user: int = Depends(get_current_user_id), session: AsyncSession = Depends(get_session)):
     return get_food_by_code(code, quantity)
 
 
 @router.get("/getAlimentFromApi/{aliment_name}")
-async def get_aliment_from_api(aliment_name: str, session: AsyncSession = Depends(get_session)):
+async def get_aliment_from_api(aliment_name: str, current_user: int = Depends(get_current_user_id), session: AsyncSession = Depends(get_session)):
     return search_food(aliment_name)
 
 
 @router.get("/getExercises/{muscle}")
-async def get_exercises_from_api(muscle: str, session: AsyncSession = Depends(get_session)):
+async def get_exercises_from_api(muscle: str, current_user: int = Depends(get_current_user_id), session: AsyncSession = Depends(get_session)):
     return get_exercises(muscle)
 
 
 @router.get("/scan/{code}/{format}")
-async def scan_aliment(code: str, session: AsyncSession = Depends(get_session)):
+async def scan_aliment(code: str, current_user: int = Depends(get_current_user_id), session: AsyncSession = Depends(get_session)):
     return scan_food(code, format)
 
 
@@ -533,7 +534,7 @@ async def scan_aliment(code: str, session: AsyncSession = Depends(get_session)):
 
 # -- GET fixes & /me/
 @router.get("/coaches/list")
-async def list_coaches(session: AsyncSession = Depends(get_session)):
+async def list_coaches(current_user: int = Depends(get_current_user_id), session: AsyncSession = Depends(get_session)):
     return await get_all_coaches(session)
 
 
@@ -542,6 +543,7 @@ async def search_coaches_route(
     city: str = None,
     lat: float = None,
     lon: float = None,
+    current_user: int = Depends(get_current_user_id),
     session: AsyncSession = Depends(get_session)
 ):
     return await search_coaches_near_location(session, city, lat, lon)
@@ -557,7 +559,7 @@ async def get_sent_invitations_route(
 
 @router.get("/coaches/me/needs-attention")
 async def get_needs_attention_route(
-    current_user_id: int,
+    current_user_id: int = Depends(get_current_user_id),
     session: AsyncSession = Depends(get_session)
 ):
     return await get_coach_needs_attention(session, current_user_id)
@@ -565,7 +567,7 @@ async def get_needs_attention_route(
 
 @router.get("/coaches/me/pending-requests")
 async def get_coach_pending_requests_route(
-    current_user_id: int,
+    current_user_id: int = Depends(get_current_user_id),
     session: AsyncSession = Depends(get_session)
 ):
     return await get_coach_pending_client_requests(session, current_user_id)
@@ -576,6 +578,7 @@ async def get_coach_pending_requests_route(
 async def get_client_details_full_route(
     client_id: int,
     target_date: Optional[str] = None,
+    current_user: int = Depends(get_current_user_id),
     session: AsyncSession = Depends(get_session)
 ):
     return await get_client_details_full(session, client_id, target_date)
@@ -584,6 +587,7 @@ async def get_client_details_full_route(
 @router.get("/coaches/client/{client_id}/dashboard-stats")
 async def get_client_dashboard_stats_for_coach(
     client_id: int,
+    current_user: int = Depends(get_current_user_id),
     session: AsyncSession = Depends(get_session)
 ):
     return await get_client_dashboard_stats(session, client_id)
@@ -591,18 +595,19 @@ async def get_client_dashboard_stats_for_coach(
 
 # -- GET dynamiques /coaches/{coach_id}/...  — en dernier
 @router.get("/coaches/{coach_id}/clients")
-async def list_coach_clients(coach_id: int, session: AsyncSession = Depends(get_session)):
+async def list_coach_clients(coach_id: int, current_user: int = Depends(get_current_user_id), session: AsyncSession = Depends(get_session)):
     return await get_clients_by_coach_id(session, coach_id)
 
 
 @router.get("/coaches/{coach_id}/home-summary")
-async def get_coach_home_summary_route(coach_id: int, session: AsyncSession = Depends(get_session)):
+async def get_coach_home_summary_route(coach_id: int, current_user: int = Depends(get_current_user_id), session: AsyncSession = Depends(get_session)):
     return await get_coach_home_summary(session, coach_id)
 
 
 @router.get("/coaches/{coach_id}/public-profile")
 async def get_coach_public_profile_route(
     coach_id: int,
+    current_user: int = Depends(get_current_user_id),
     session: AsyncSession = Depends(get_session)
 ):
     return await get_coach_public_profile(session, coach_id)
@@ -622,6 +627,7 @@ async def invite_client_by_code_route(
 async def create_workout_for_client_route(
     client_id: int,
     workout_data: WorkoutCreate,
+    current_user: int = Depends(get_current_user_id),
     session: AsyncSession = Depends(get_session)
 ):
     return await create_full_workout(session, client_id, workout_data)
@@ -631,6 +637,7 @@ async def create_workout_for_client_route(
 async def create_meal_for_client_route(
     client_id: int,
     meal_data: MealCreateByCoach,
+    current_user: int = Depends(get_current_user_id),
     session: AsyncSession = Depends(get_session)
 ):
     return await create_meal_for_client(session, client_id, meal_data)
@@ -638,7 +645,7 @@ async def create_meal_for_client_route(
 
 # -- POST dynamiques /coaches/{coach_id}/...  — en dernier
 @router.post("/coaches/{coach_id}/add-client")
-async def add_client_via_code(coach_id: int, request: Request, session: AsyncSession = Depends(get_session)):
+async def add_client_via_code(coach_id: int, request: Request, current_user: int = Depends(get_current_user_id), session: AsyncSession = Depends(get_session)):
     data = await request.json()
     unique_code = data.get("code")
     return await assign_client_by_code(session, coach_id, unique_code)
@@ -670,7 +677,7 @@ async def update_meal_by_coach_route(
 async def respond_to_client_request_route(
     request_id: int,
     status: str,
-    current_user_id: int,
+    current_user_id: int = Depends(get_current_user_id),
     session: AsyncSession = Depends(get_session)
 ):
     return await respond_to_client_coach_request(session, request_id, status, current_user_id)
@@ -680,6 +687,7 @@ async def respond_to_client_request_route(
 @router.delete("/coaches/workouts/{workout_id}")
 async def coach_delete_workout(
     workout_id: int,
+    current_user: int = Depends(get_current_user_id),
     session: AsyncSession = Depends(get_session)
 ):
     return await delete_full_workout(session, workout_id)
@@ -714,7 +722,7 @@ async def delete_invitation_route(
 
 # -- DELETE dynamiques /coaches/{coach_id}/...  — en dernier
 @router.delete("/coaches/{coach_id}/clients/{client_id}")
-async def remove_client_route(coach_id: int, client_id: int, session: AsyncSession = Depends(get_session)):
+async def remove_client_route(coach_id: int, client_id: int, current_user: int = Depends(get_current_user_id), session: AsyncSession = Depends(get_session)):
     return await unassign_client(session, coach_id, client_id)
 
 
@@ -728,6 +736,7 @@ async def remove_client_route(coach_id: int, client_id: int, session: AsyncSessi
 @router.get("/clients/search-coaches")
 async def search_coaches_by_city_route(
     city: Optional[str] = None,
+    current_user: int = Depends(get_current_user_id),
     session: AsyncSession = Depends(get_session)
 ):
     return await search_coaches_by_city(session, city)
@@ -743,7 +752,7 @@ async def get_my_invitations_route(
 
 @router.get("/clients/me/sent-requests")
 async def get_client_sent_requests_route(
-    current_user_id: int,
+    current_user_id: int = Depends(get_current_user_id),
     session: AsyncSession = Depends(get_session)
 ):
     return await get_client_sent_coach_requests(session, current_user_id)
@@ -753,7 +762,7 @@ async def get_client_sent_requests_route(
 @router.post("/clients/me/requests")
 async def create_client_request_route(
     req: ClientCoachRequestCreate,
-    current_user_id: int,
+    current_user_id: int = Depends(get_current_user_id),
     session: AsyncSession = Depends(get_session)
 ):
     return await create_client_coach_request(session, current_user_id, req.coach_id)
@@ -773,7 +782,7 @@ async def respond_to_invitation_route(
 @router.delete("/clients/requests/{request_id}")
 async def cancel_client_request_route(
     request_id: int,
-    current_user_id: int,
+    current_user_id: int = Depends(get_current_user_id),
     session: AsyncSession = Depends(get_session)
 ):
     return await cancel_client_coach_request(session, request_id, current_user_id)
@@ -788,7 +797,7 @@ async def cancel_client_request_route(
 # -- GET fixe — doit précéder GET /messages/{other_user_id}
 @router.get("/messages/conversations", response_model=list[ConversationRead])
 async def get_conversations_route(
-    current_user_id: int,
+    current_user_id: int = Depends(get_current_user_id),
     session: AsyncSession = Depends(get_session)
 ):
     return await get_conversations(session, current_user_id)
@@ -806,7 +815,7 @@ async def get_unread_count_route(
 @router.post("/messages", response_model=MessageRead)
 async def send_message_route(
     message_data: MessageCreate,
-    current_user_id: int,
+    current_user_id: int = Depends(get_current_user_id),
     session: AsyncSession = Depends(get_session)
 ):
     return await send_message(session, current_user_id, message_data)
@@ -815,7 +824,7 @@ async def send_message_route(
 @router.put("/messages/read/{other_user_id}")
 async def mark_messages_as_read_route(
     other_user_id: int,
-    current_user_id: int,
+    current_user_id: int = Depends(get_current_user_id),
     session: AsyncSession = Depends(get_session)
 ):
     return await mark_messages_read(session, current_user_id, other_user_id)
@@ -825,7 +834,7 @@ async def mark_messages_as_read_route(
 @router.get("/messages/{other_user_id}", response_model=list[MessageRead])
 async def get_chat_history_route(
     other_user_id: int,
-    current_user_id: int,
+    current_user_id: int = Depends(get_current_user_id),
     session: AsyncSession = Depends(get_session)
 ):
     return await get_chat_history(session, current_user_id, other_user_id)
@@ -953,6 +962,7 @@ async def delete_forum_message_route(
 @router.get("/users/{user_id}/public-profile")
 async def get_user_public_profile_route(
     user_id: int,
+    current_user: int = Depends(get_current_user_id),
     session: AsyncSession = Depends(get_session)
 ):
     return await get_user_public_profile(session, user_id)

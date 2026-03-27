@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "NutriTrain",
-    "slug": "NutriTrain",
+    "name": "Straple",
+    "slug": "Straple",
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
@@ -10,8 +10,8 @@
     },
     "web": {
       "favicon": "./assets/images/favicon.png",
-      "shortName": "NutriTrain",
-      "name": "NutriTrain App",
+      "shortName": "Straple",
+      "name": "Straple App",
       "themeColor": "#1A1F2B",
       "backgroundColor": "#1A1F2B",
       "display": "standalone",

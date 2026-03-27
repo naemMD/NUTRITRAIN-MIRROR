@@ -29,15 +29,15 @@ const Index = () => {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.logoContainer}>
         <Text style={styles.appName}>
-          <Text style={styles.appNameBlue}>NUTRI</Text>
-          <Text style={styles.appNameWhite}>TRAIN</Text>
+          <Text style={styles.appNameWhite}>STRAPLE</Text>
         </Text>
+        <Text style={{ color: '#888', fontSize: 9, letterSpacing: 2 }}>TRAIN SMART, LIVE STRONG</Text>
       </View>
       
       <View style={styles.contentContainer}>
         <Text style={styles.welcomeText}>Welcome to your fitness journey</Text>
         <Text style={styles.descriptionText}>
-          Track your nutrition, follow personalized training plans, and reach your fitness goals with NUTRITRAIN
+          Track your nutrition, follow personalized training plans, and reach your fitness goals with STRAPLE
         </Text>
       </View>
       
@@ -57,7 +57,7 @@ const Index = () => {
         </TouchableOpacity>
       </View>
       
-      <Text style={styles.footerText}>Your personal nutrition and training app</Text>
+      <Text style={styles.footerText}>Your personal fitness & nutrition app</Text>
     </View>
   );
 };
