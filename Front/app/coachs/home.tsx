@@ -22,10 +22,11 @@ export default function CoachHomepage() {
   const [isModalVisible, setIsModalVisible] = useState(false);
 
   // --- 🔥 CONFIGURATION DES OBJECTIFS (Traductions, Icônes & Couleurs) ---
-  const goalConfig: { [key: string]: { label: string; icon: any; color: string } } = {
-    'lose_weight': { label: 'Lose Weight', icon: 'trending-down', color: '#E74C3C' },
-    'gain_muscle': { label: 'Gain Muscle', icon: 'barbell', color: '#2ECC71' },
-    'maintain': { label: 'Maintain Weight', icon: 'git-commit', color: '#F1C40F' }
+  const goalConfig: { [key: string]: { label: string; color: string } } = {
+    'lose_weight': { label: 'Lose Weight', color: '#E74C3C' },
+    'gain_muscle': { label: 'Gain Muscle', color: '#2ECC71' },
+    'maintain': { label: 'Maintain Weight', color: '#F1C40F' },
+    'maintain_weight': { label: 'Maintain Weight', color: '#F1C40F' }
   };
 
   const fetchData = async () => {
@@ -81,9 +82,8 @@ export default function CoachHomepage() {
     }
   };
 
-    const currentClientGoal = goalConfig[selectedRequest?.client_goal] || { 
-        label: 'Not specified', 
-        icon: 'help-circle', 
+    const currentClientGoal = goalConfig[selectedRequest?.client_goal] || {
+        label: 'Not specified',
         color: '#8A8D91' 
     };
 
@@ -251,15 +251,12 @@ export default function CoachHomepage() {
                           <View style={styles.metricsGrid}>
                               <View style={styles.metricRow}>
                                   <View style={styles.metricItem}>
-                                      <View style={[styles.iconGoalCircle, { backgroundColor: `${currentClientGoal.color}15` }]}>
-                                          <Ionicons name={currentClientGoal.icon} size={20} color={currentClientGoal.color} />
-                                      </View>
                                       <Text style={[styles.metricVal, { color: currentClientGoal.color }]}>
                                           {currentClientGoal.label}
                                       </Text>
                                       <Text style={styles.metricLab}>Goal</Text>
                                   </View>
-                                  
+
                                   <View style={styles.metricItem}>
                                       <Ionicons name="calendar-outline" size={22} color="#3498DB" />
                                       <Text style={styles.metricVal}>{selectedRequest.client_age || '--'} y/o</Text>

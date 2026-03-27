@@ -5,10 +5,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { getUserDetails } from '@/services/authStorage';
 import api from '@/services/api';
 
+const CONVERSATIONS_PER_PAGE = 15;
+
 const MessagesListScreen = () => {
   const router = useRouter();
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const fetchConversations = async () => {
     try {
@@ -56,14 +59,35 @@ const MessagesListScreen = () => {
       {loading ? (
         <ActivityIndicator size="large" color="#3498DB" style={{marginTop: 50}} />
       ) : (
+        <>
         <FlatList
-          data={conversations}
+          data={conversations.slice((currentPage - 1) * CONVERSATIONS_PER_PAGE, currentPage * CONVERSATIONS_PER_PAGE)}
           keyboardDismissMode="on-drag"
           keyExtractor={(item) => item.client_id.toString()}
           renderItem={renderItem}
           contentContainerStyle={{ padding: 16 }}
           ListEmptyComponent={<Text style={styles.emptyText}>Aucune conversation.</Text>}
         />
+        {conversations.length > CONVERSATIONS_PER_PAGE && (
+          <View style={styles.paginationContainer}>
+            <TouchableOpacity
+              style={[styles.paginationBtn, currentPage === 1 && styles.paginationBtnDisabled]}
+              onPress={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+            >
+              <Ionicons name="chevron-back" size={18} color={currentPage === 1 ? '#555' : 'white'} />
+            </TouchableOpacity>
+            <Text style={styles.paginationText}>{currentPage} / {Math.ceil(conversations.length / CONVERSATIONS_PER_PAGE)}</Text>
+            <TouchableOpacity
+              style={[styles.paginationBtn, currentPage >= Math.ceil(conversations.length / CONVERSATIONS_PER_PAGE) && styles.paginationBtnDisabled]}
+              onPress={() => setCurrentPage(p => Math.min(Math.ceil(conversations.length / CONVERSATIONS_PER_PAGE), p + 1))}
+              disabled={currentPage >= Math.ceil(conversations.length / CONVERSATIONS_PER_PAGE)}
+            >
+              <Ionicons name="chevron-forward" size={18} color={currentPage >= Math.ceil(conversations.length / CONVERSATIONS_PER_PAGE) ? '#555' : 'white'} />
+            </TouchableOpacity>
+          </View>
+        )}
+        </>
       )}
     </View>
   );
@@ -79,7 +103,11 @@ const styles = StyleSheet.create({
   convDetails: { flex: 1 },
   convName: { color: 'white', fontSize: 16, fontWeight: 'bold', marginBottom: 4 },
   lastMessage: { color: '#8A8D91', fontSize: 14 },
-  emptyText: { color: '#8A8D91', textAlign: 'center', marginTop: 50 }
+  emptyText: { color: '#8A8D91', textAlign: 'center', marginTop: 50 },
+  paginationContainer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 12, gap: 20 },
+  paginationBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#2A4562', justifyContent: 'center', alignItems: 'center' },
+  paginationBtnDisabled: { backgroundColor: '#1E2C3D' },
+  paginationText: { color: 'white', fontWeight: 'bold', fontSize: 14 }
 });
 
 export default MessagesListScreen;

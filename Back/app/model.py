@@ -96,10 +96,11 @@ async def register_user(session: AsyncSession, user_data: dict):
         height=user_data.get("height"),
         weight=user_data.get("weight"),
         unique_code=generated_code,
-        city=user_data.get("city") if role_str == 'coach' else None,
+        city=user_data.get("city"),
         latitude=user_data.get("latitude") if role_str == 'coach' else None,
         longitude=user_data.get("longitude") if role_str == 'coach' else None,
-        goal=user_data.get("goal") if role_str == 'client' else None
+        goal=user_data.get("goal") if role_str == 'client' else None,
+        fitness_level=user_data.get("fitness_level") if role_str == 'client' else None
     )
 
     new_user.password = user_data["password"]

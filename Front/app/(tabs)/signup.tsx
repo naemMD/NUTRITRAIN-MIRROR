@@ -399,6 +399,44 @@ const SignupPage = () => {
 
           {userType === 'client' && (
             <View style={styles.dynamicSection}>
+              <Text style={styles.inputLabel}>City</Text>
+              <View style={{ zIndex: 10 }}>
+                <TextInput
+                  style={[styles.input, { marginBottom: cityResults.length > 0 && !selectedCity ? 0 : 20 }]}
+                  placeholder="Where do you live? (e.g. Paris)"
+                  placeholderTextColor="#8A8D91"
+                  value={citySearch}
+                  onChangeText={searchCityApi}
+                />
+
+                {isSearchingCity && (
+                  <ActivityIndicator size="small" color="#3498DB" style={{ position: 'absolute', right: 15, top: 15 }} />
+                )}
+
+                {cityResults.length > 0 && (
+                    <View style={styles.dropdownContainer}>
+                        <ScrollView
+                            style={{ maxHeight: 200 }}
+                            nestedScrollEnabled={true}
+                            keyboardShouldPersistTaps="handled"
+                        >
+                            {cityResults.map((item, index) => (
+                                <TouchableOpacity
+                                    key={index}
+                                    style={styles.dropdownItem}
+                                    onPress={() => handleSelectCity(item)}
+                                >
+                                    <Text style={styles.dropdownItemText}>{item.name}</Text>
+                                    <Text style={{ color: '#8A8D91', fontSize: 12, marginTop: 2 }}>
+                                        {item.admin1 ? `${item.admin1}, ` : ''}{item.country}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+                    </View>
+                )}
+              </View>
+
               <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
                 <View style={{flex: 0.48}}>
                   <Text style={styles.inputLabel}>Weight (kg)</Text>

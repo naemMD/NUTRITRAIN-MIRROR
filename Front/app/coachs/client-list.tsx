@@ -16,6 +16,8 @@ const CoachListScreen = () => {
   const [receivedRequests, setReceivedRequests] = useState([]); 
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const CLIENTS_PER_PAGE = 15;
 
   // Modal pour inviter un client
   const [isInviteModalVisible, setIsInviteModalVisible] = useState(false);
@@ -27,10 +29,11 @@ const CoachListScreen = () => {
   const [isRequestModalVisible, setIsRequestModalVisible] = useState(false);
 
   // Configuration des objectifs pour la modale
-  const goalConfig: { [key: string]: { label: string; icon: any; color: string } } = {
-    'lose_weight': { label: 'Lose Weight', icon: 'trending-down', color: '#E74C3C' },
-    'gain_muscle': { label: 'Gain Muscle', icon: 'barbell', color: '#2ECC71' },
-    'maintain': { label: 'Maintain Weight', icon: 'git-commit', color: '#F1C40F' }
+  const goalConfig: { [key: string]: { label: string; color: string } } = {
+    'lose_weight': { label: 'Lose Weight', color: '#E74C3C' },
+    'gain_muscle': { label: 'Gain Muscle', color: '#2ECC71' },
+    'maintain': { label: 'Maintain Weight', color: '#F1C40F' },
+    'maintain_weight': { label: 'Maintain Weight', color: '#F1C40F' }
   };
 
   const fetchClients = async (id = userId) => {
@@ -183,40 +186,40 @@ const CoachListScreen = () => {
       navigation.push({ pathname: "/chat/[id]", params: { id: client.id, name: client.firstname } });
   };
 
-  const renderClientItem = ({ item }: any) => (
-    <View style={styles.clientItem}>
-      <View style={styles.clientInfoContainer}>
-        <View style={styles.clientAvatar}>
-            <Text style={{fontSize: 20, fontWeight:'bold', color: '#2A4562'}}>
-                {item.firstname ? item.firstname[0] : '?'}
-            </Text>
+  const renderClientItem = ({ item }: any) => {
+    return (
+      <View style={styles.clientItem}>
+        <View style={styles.clientInfoContainer}>
+          <View style={styles.clientAvatar}>
+              <Text style={styles.clientAvatarText}>
+                  {item.firstname ? item.firstname[0].toUpperCase() : '?'}
+              </Text>
+          </View>
+          <View style={styles.clientDetails}>
+            <Text style={styles.clientName}>{item.firstname} {item.lastname}</Text>
+          </View>
         </View>
-        <View style={styles.clientDetails}>
-          <Text style={styles.clientName}>{item.firstname} {item.lastname}</Text>
-          <Text style={styles.clientMeta}>Age: {item.age} • {item.gender}</Text>
-          <Text style={styles.clientMeta}>Goal: {item.goal ? String(item.goal).replace('_', ' ') : 'Not specified'}</Text>
-        </View>
-        
-        <TouchableOpacity style={styles.removeClientBtn} onPress={() => handleRemoveClient(item.id, `${item.firstname} ${item.lastname}`)}>
-            <Ionicons name="trash-outline" size={20} color="#e74c3c" />
-        </TouchableOpacity>
-      </View>
-      
-      <View style={styles.actionButtonsContainer}>
-        <TouchableOpacity style={styles.actionButton} onPress={() => handleContactClient(item)}>
-          <Text style={styles.actionButtonText}>Contact</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.actionButton} onPress={() => handleViewClient(item)}>
-          <Text style={styles.actionButtonText}>View</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
 
-    const currentClientGoal = goalConfig[selectedRequest?.client_goal] || { 
-        label: 'Not specified', 
-        icon: 'help-circle', 
+        <View style={styles.actionButtonsContainer}>
+          <TouchableOpacity style={styles.contactButton} onPress={() => handleContactClient(item)}>
+            <Ionicons name="chatbubble-outline" size={16} color="#3498DB" />
+            <Text style={styles.contactButtonText}>Contact</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.viewButton} onPress={() => handleViewClient(item)}>
+            <Text style={styles.viewButtonText}>Dashboard</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.removeClientBtn} onPress={() => handleRemoveClient(item.id, `${item.firstname} ${item.lastname}`)}>
+            <Ionicons name="trash-outline" size={18} color="#e74c3c" />
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
+    const currentClientGoal = goalConfig[selectedRequest?.client_goal] || {
+        label: 'Not specified',
         color: '#8A8D91' 
     };
 
@@ -226,7 +229,7 @@ const CoachListScreen = () => {
       <View style={styles.header}>
           <Text style={styles.headerTitle}>My Clients</Text>
           <TouchableOpacity style={styles.addClientBtn} onPress={() => setIsInviteModalVisible(true)}>
-              <Ionicons name="add" size={24} color="white" />
+              <Ionicons name="person-add-outline" size={18} color="white" />
               <Text style={styles.addClientText}>Invite</Text>
           </TouchableOpacity>
       </View>
@@ -271,15 +274,18 @@ const CoachListScreen = () => {
           <Text style={styles.sectionLabel}>Sent Invitations</Text>
           {sentInvitations.map((inv: any) => (
             <View key={inv.id} style={[styles.invitationItem, { borderLeftColor: inv.status === 'pending' ? '#f1c40f' : '#e74c3c' }]}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: 'white', fontWeight: 'bold' }}>{inv.client_name}</Text>
-                <Text style={{ color: '#8A8D91', fontSize: 12 }}>{inv.client_email}</Text>
+              <View style={styles.invitationAvatar}>
+                <Ionicons name={inv.status === 'pending' ? "hourglass-outline" : "close-circle-outline"} size={20} color={inv.status === 'pending' ? '#f1c40f' : '#e74c3c'} />
+              </View>
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 15 }}>{inv.client_name}</Text>
+                <Text style={{ color: '#8A8D91', fontSize: 12, marginTop: 2 }}>{inv.client_email}</Text>
                 <Text style={{ color: inv.status === 'pending' ? '#f1c40f' : '#e74c3c', fontSize: 10, fontWeight: 'bold', marginTop: 4, textTransform: 'uppercase' }}>
-                  {inv.status === 'pending' ? '• Waiting for client...' : '• Request Declined'}
+                  {inv.status === 'pending' ? 'Waiting for response...' : 'Request Declined'}
                 </Text>
               </View>
-              <TouchableOpacity onPress={() => handleCancelInvitation(inv.id)} style={{ padding: 5 }}>
-                  <Ionicons name="trash-outline" size={20} color="#e74c3c" />
+              <TouchableOpacity onPress={() => handleCancelInvitation(inv.id)} style={styles.invitationDeleteBtn}>
+                  <Ionicons name="close" size={18} color="#e74c3c" />
               </TouchableOpacity>
             </View>
           ))}
@@ -293,8 +299,9 @@ const CoachListScreen = () => {
       {loading ? (
           <ActivityIndicator size="large" color="#3498DB" style={{marginTop: 50}} />
       ) : (
+        <>
         <FlatList
-            data={clients}
+            data={clients.slice((currentPage - 1) * CLIENTS_PER_PAGE, currentPage * CLIENTS_PER_PAGE)}
             keyboardDismissMode="on-drag"
             renderItem={renderClientItem}
             keyExtractor={item => item.id.toString()}
@@ -307,6 +314,26 @@ const CoachListScreen = () => {
                 </View>
             }
         />
+        {clients.length > CLIENTS_PER_PAGE && (
+          <View style={styles.paginationContainer}>
+            <TouchableOpacity
+              style={[styles.paginationBtn, currentPage === 1 && styles.paginationBtnDisabled]}
+              onPress={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+            >
+              <Ionicons name="chevron-back" size={18} color={currentPage === 1 ? '#555' : 'white'} />
+            </TouchableOpacity>
+            <Text style={styles.paginationText}>{currentPage} / {Math.ceil(clients.length / CLIENTS_PER_PAGE)}</Text>
+            <TouchableOpacity
+              style={[styles.paginationBtn, currentPage >= Math.ceil(clients.length / CLIENTS_PER_PAGE) && styles.paginationBtnDisabled]}
+              onPress={() => setCurrentPage(p => Math.min(Math.ceil(clients.length / CLIENTS_PER_PAGE), p + 1))}
+              disabled={currentPage >= Math.ceil(clients.length / CLIENTS_PER_PAGE)}
+            >
+              <Ionicons name="chevron-forward" size={18} color={currentPage >= Math.ceil(clients.length / CLIENTS_PER_PAGE) ? '#555' : 'white'} />
+            </TouchableOpacity>
+          </View>
+        )}
+        </>
       )}
 
       {/* 🔥 MODAL DE PROFIL DU CLIENT (Copie exacte de la page Home) */}
@@ -333,15 +360,12 @@ const CoachListScreen = () => {
                           <View style={styles.metricsGrid}>
                               <View style={styles.metricRow}>
                                   <View style={styles.metricItem}>
-                                      <View style={[styles.iconGoalCircle, { backgroundColor: `${currentClientGoal.color}15` }]}>
-                                          <Ionicons name={currentClientGoal.icon} size={20} color={currentClientGoal.color} />
-                                      </View>
                                       <Text style={[styles.metricVal, { color: currentClientGoal.color }]}>
                                           {currentClientGoal.label}
                                       </Text>
                                       <Text style={styles.metricLab}>Goal</Text>
                                   </View>
-                                  
+
                                   <View style={styles.metricItem}>
                                       <Ionicons name="calendar-outline" size={22} color="#3498DB" />
                                       <Text style={styles.metricVal}>{selectedRequest.client_age || '--'} y/o</Text>
@@ -425,13 +449,14 @@ const CoachListScreen = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#1A1F2B' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 15, marginTop: 10 },
-  headerTitle: { fontSize: 24, fontWeight: 'bold', color: 'white' },
-  addClientBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#3498DB', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20 },
-  addClientText: { color: 'white', fontWeight: 'bold', marginLeft: 5 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 20, marginTop: 10 },
+  headerTitle: { fontSize: 26, fontWeight: 'bold', color: 'white' },
+  headerSubtitle: { color: '#8A8D91', fontSize: 13, marginTop: 2 },
+  addClientBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#3498DB', paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12, gap: 8 },
+  addClientText: { color: 'white', fontWeight: 'bold', fontSize: 14 },
   sectionLabel: { color: '#8A8D91', fontSize: 12, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 },
-  
-  // --- CARTE D'ALERTE POUR LES DEMANDES (Design Home) ---
+
+  // --- CARTE D'ALERTE POUR LES DEMANDES ---
   alertCard: { borderRadius: 12, padding: 15, borderLeftWidth: 4, width: 280, marginRight: 15 },
   cardHeader: { flexDirection: 'row', alignItems: 'center' },
   avatarPlaceholder: { width: 45, height: 45, borderRadius: 22.5, backgroundColor: '#2A4562', justifyContent: 'center', alignItems: 'center' },
@@ -440,19 +465,26 @@ const styles = StyleSheet.create({
   viewBadge: { backgroundColor: '#3498DB', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
   viewBadgeText: { color: 'white', fontWeight: 'bold', fontSize: 10 },
 
-  invitationItem: { backgroundColor: '#1E2C3D', borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center', borderLeftWidth: 4 },
-  
+  invitationItem: { backgroundColor: '#1E2C3D', borderRadius: 12, padding: 14, flexDirection: 'row', alignItems: 'center', borderLeftWidth: 4, marginBottom: 10 },
+  invitationAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)', justifyContent: 'center', alignItems: 'center' },
+  invitationDeleteBtn: { padding: 8, backgroundColor: 'rgba(231, 76, 60, 0.1)', borderRadius: 8 },
+
   clientList: { paddingHorizontal: 16, paddingBottom: 20 },
-  clientItem: { backgroundColor: '#2A4562', borderRadius: 10, marginBottom: 16, padding: 12 },
-  clientInfoContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  clientAvatar: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#CCCCCC', justifyContent: 'center', alignItems: 'center' },
-  clientDetails: { flex: 1, marginLeft: 10 }, 
-  clientName: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },
-  clientMeta: { color: '#FFFFFF', fontSize: 14, textTransform: 'capitalize' },
-  removeClientBtn: { padding: 8, backgroundColor: 'rgba(231, 76, 60, 0.1)', borderRadius: 8, marginLeft: 10 },
-  actionButtonsContainer: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 5 },
-  actionButton: { backgroundColor: '#3498DB', borderRadius: 20, paddingVertical: 8, paddingHorizontal: 16, alignItems: 'center', width: width * 0.35 },
-  actionButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: 'bold' },
+  clientItem: { backgroundColor: '#232D3F', borderRadius: 16, marginBottom: 12, padding: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  clientInfoContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
+  clientAvatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#3498DB', justifyContent: 'center', alignItems: 'center' },
+  clientAvatarText: { fontSize: 20, fontWeight: 'bold', color: 'white' },
+  clientDetails: { flex: 1, marginLeft: 14 },
+  clientName: { color: '#FFFFFF', fontSize: 17, fontWeight: 'bold' },
+  clientMeta: { color: '#8A8D91', fontSize: 12 },
+  goalBadge: { borderWidth: 1, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
+  goalBadgeText: { fontSize: 10, fontWeight: 'bold' },
+  removeClientBtn: { padding: 8, backgroundColor: 'rgba(231, 76, 60, 0.1)', borderRadius: 10 },
+  actionButtonsContainer: { flexDirection: 'row', gap: 10 },
+  contactButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: 'rgba(52, 152, 219, 0.1)', borderWidth: 1, borderColor: '#3498DB', borderRadius: 10, paddingVertical: 10 },
+  contactButtonText: { color: '#3498DB', fontWeight: 'bold', fontSize: 13 },
+  viewButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#3498DB', borderRadius: 10, paddingVertical: 10 },
+  viewButtonText: { color: 'white', fontWeight: 'bold', fontSize: 13 },
 
   // --- MODAL DU PROFIL DU CLIENT (Design Home) ---
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center', padding: 20 },
@@ -485,7 +517,13 @@ const styles = StyleSheet.create({
   input: { backgroundColor: '#1A1F2B', width: '100%', color: 'white', padding: 15, borderRadius: 10, fontSize: 18, textAlign: 'center', marginBottom: 20, borderWidth: 1, borderColor: '#3498DB' },
   inviteModalButtons: { flexDirection: 'row', justifyContent: 'space-between', width: '100%' },
   inviteModalBtn: { flex: 1, padding: 15, borderRadius: 10, alignItems: 'center', marginHorizontal: 5 },
-  inviteModalBtnText: { color: 'white', fontWeight: 'bold' }
+  inviteModalBtnText: { color: 'white', fontWeight: 'bold' },
+
+  // --- PAGINATION ---
+  paginationContainer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 12, gap: 20 },
+  paginationBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#2A4562', justifyContent: 'center', alignItems: 'center' },
+  paginationBtnDisabled: { backgroundColor: '#1E2C3D' },
+  paginationText: { color: 'white', fontWeight: 'bold', fontSize: 14 }
 });
 
 export default CoachListScreen;

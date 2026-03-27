@@ -54,7 +54,6 @@ const ClientDetailsScreen = () => {
   const [isWorkoutModalVisible, setWorkoutModalVisible] = useState(false);
   const [savingWorkout, setSavingWorkout] = useState(false);
   const [workoutName, setWorkoutName] = useState('');
-  const [workoutDifficulty, setWorkoutDifficulty] = useState('Medium');
   const [exercises, setExercises] = useState<any[]>([]);
   const [editingWorkoutId, setEditingWorkoutId] = useState<number | null>(null);
   const [isExoSelectorVisible, setIsExoSelectorVisible] = useState(false);
@@ -413,13 +412,17 @@ const ClientDetailsScreen = () => {
   const handleEditWorkout = (workout: any) => {
     setEditingWorkoutId(workout.id);
     setWorkoutName(workout.name);
-    setWorkoutDifficulty(workout.difficulty || 'Medium');
-    const formattedExos = safeParseJSON(workout.exercises).map((exo: any) => ({
-      name: exo.name,
-      muscle: exo.muscle,
-      num_sets: exo.num_sets,
-      sets_details: safeParseJSON(exo.sets_details)
-    }));
+    const formattedExos = safeParseJSON(workout.exercises).map((exo: any) => {
+      const sets = safeParseJSON(exo.sets_details);
+      const isDur = sets.length > 0 && sets[0].duration > 0 && (!sets[0].reps || sets[0].reps === 0);
+      return {
+        name: exo.name,
+        muscle: exo.muscle,
+        type: isDur ? 'duration' : 'strength',
+        num_sets: exo.num_sets,
+        sets_details: sets.map((s: any) => ({ reps: String(s.reps || 0), duration: String(s.duration || 0), weight: String(s.weight || 0) }))
+      };
+    });
     setExercises(formattedExos);
     setSelectedExoData(null);
     setWorkoutModalVisible(true);
@@ -456,34 +459,58 @@ const ClientDetailsScreen = () => {
 
   const handleConfirmExercise = () => {
     if (!selectedExoData) return crossAlert('Error', 'Please select an exercise.');
-    const formattedSets = currentSets.map((s, idx) => ({
-      set_number: idx + 1,
-      reps: selectedExoData.type === 'strength' ? (parseInt(s.reps) || 0) : 0,
-      duration: selectedExoData.type === 'duration' ? (parseInt(s.duration) || 0) : 0,
-      weight: selectedExoData.type === 'strength' ? (parseFloat(s.weight) || 0) : 0,
-    }));
-    setExercises([...exercises, {
-      name: selectedExoData.name, muscle: selectedExoData.muscle, num_sets: currentSets.length, rest_time: 60, sets_details: formattedSets
-    }]);
+    const newExo = {
+      name: selectedExoData.name, muscle: selectedExoData.muscle, type: selectedExoData.type, num_sets: currentSets.length, rest_time: 60,
+      sets_details: currentSets.map((s, idx) => ({ reps: s.reps, duration: s.duration, weight: s.weight }))
+    };
+    setExercises([...exercises, newExo]);
     setSelectedExoData(null);
     setCurrentSets([{ reps: '10', duration: '0', weight: '0' }]);
   };
 
-  const handleEditExercise = (index: number) => {
-    const exoToEdit = exercises[index];
-    const isDuration = exoToEdit.sets_details.some((s: any) => s.duration > 0);
-    setSelectedExoData({ name: exoToEdit.name, muscle: exoToEdit.muscle, type: isDuration ? 'duration' : 'strength' });
-    const loadedSets = exoToEdit.sets_details.map((s: any) => ({ reps: String(s.reps || 0), duration: String(s.duration || 0), weight: String(s.weight || 0) }));
-    setCurrentSets(loadedSets);
-    setExercises(exercises.filter((_, i) => i !== index));
+  // --- INLINE EDIT FUNCTIONS ---
+  const handleInlineUpdateSet = (exoIndex: number, setIndex: number, field: string, value: string) => {
+    const updated = [...exercises];
+    const sets = [...updated[exoIndex].sets_details];
+    sets[setIndex] = { ...sets[setIndex], [field]: value };
+    updated[exoIndex] = { ...updated[exoIndex], sets_details: sets, num_sets: sets.length };
+    setExercises(updated);
+  };
+
+  const handleInlineAddSet = (exoIndex: number) => {
+    const updated = [...exercises];
+    const exo = updated[exoIndex];
+    const newSet = exo.type === 'duration' ? { reps: '0', duration: '30', weight: '0' } : { reps: '10', duration: '0', weight: '0' };
+    updated[exoIndex] = { ...exo, sets_details: [...exo.sets_details, newSet], num_sets: exo.sets_details.length + 1 };
+    setExercises(updated);
+  };
+
+  const handleInlineRemoveSet = (exoIndex: number, setIndex: number) => {
+    const updated = [...exercises];
+    const sets = updated[exoIndex].sets_details.filter((_: any, i: number) => i !== setIndex);
+    updated[exoIndex] = { ...updated[exoIndex], sets_details: sets, num_sets: sets.length };
+    setExercises(updated);
+  };
+
+  const handleRemoveExercise = (exoIndex: number) => {
+    setExercises(exercises.filter((_, i) => i !== exoIndex));
   };
 
   const handleSaveWorkout = async () => {
     if (!workoutName.trim()) return crossAlert("Error", "Please provide a workout name.");
     setSavingWorkout(true);
     try {
+      const formattedExercises = exercises.map(exo => ({
+        name: exo.name, muscle: exo.muscle, num_sets: exo.sets_details.length, rest_time: exo.rest_time || 60,
+        sets_details: exo.sets_details.map((s: any, idx: number) => ({
+          set_number: idx + 1,
+          reps: exo.type === 'strength' ? (parseInt(s.reps) || 0) : 0,
+          duration: exo.type === 'duration' ? (parseInt(s.duration) || 0) : 0,
+          weight: exo.type === 'strength' ? (parseFloat(s.weight) || 0) : 0,
+        }))
+      }));
       const payload = {
-        name: workoutName, description: "", difficulty: workoutDifficulty, scheduled_date: selectedDate.toISOString(), exercises: exercises
+        name: workoutName, description: "", difficulty: "Medium", scheduled_date: selectedDate.toISOString(), exercises: formattedExercises
       };
       if (editingWorkoutId) {
         await api.put(`/coaches/workouts/${editingWorkoutId}`, payload);
@@ -533,7 +560,7 @@ const ClientDetailsScreen = () => {
                 <View style={styles.avatar}><Text style={styles.avatarText}>{clientData?.firstname?.[0]}</Text></View>
                 <View style={{marginLeft: 15, flex: 1}}>
                     <Text style={styles.clientName}>{clientData?.firstname} {clientData?.lastname}</Text>
-                    <Text style={styles.clientInfo}>{clientData?.age} years old • {clientData?.gender}</Text>
+                    <Text style={styles.clientInfo}>{clientData?.age}yo • {clientData?.gender}</Text>
                     
                     <View style={styles.badgesContainer}>
                         {/* 🔥 CORRECTIF ICI : Vérification robuste de l'objectif */}
@@ -541,7 +568,7 @@ const ClientDetailsScreen = () => {
                             <Text style={styles.goalBadgeText}>
                                 {clientData?.goal && goalLabels[clientData.goal] 
                                     ? goalLabels[clientData.goal] 
-                                    : (clientData?.goal ? `🎯 ${clientData.goal.replace('_', ' ')}` : 'No goal specified')
+                                    : (clientData?.goal ? `${clientData.goal.replace('_', ' ')}` : 'No goal specified')
                                 }
                             </Text>
                         </View>
@@ -599,7 +626,7 @@ const ClientDetailsScreen = () => {
                         clientData.meals_today.map((meal: any) => (
                             <View key={meal.id} style={styles.displayCard}>
                                 <TouchableOpacity style={{flex: 1, flexDirection: 'row', alignItems: 'center'}} onPress={() => toggleMealExpand(meal.id)}>
-                                    <Ionicons name={meal.is_consumed ? "checkmark-circle" : "time-outline"} size={22} color={meal.is_consumed ? "#2ecc71" : "#888"} style={{marginRight: 10}} />
+                                    <Ionicons name={meal.is_consumed ? "checkmark-circle" : "ellipse-outline"} size={22} color={meal.is_consumed ? "#2ecc71" : "#f39c12"} style={{marginRight: 10}} />
                                     <View style={{flex: 1}}>
                                         <Text style={[styles.listName, meal.is_consumed && styles.completedText]}>{meal.name}</Text>
                                         <Text style={{color: meal.is_consumed ? '#2ecc71' : '#888', fontSize: 12, marginTop: 2}}>
@@ -644,7 +671,7 @@ const ClientDetailsScreen = () => {
                         clientData.workouts_today.map((workout: any) => (
                             <View key={workout.id} style={styles.displayCard}>
                                 <TouchableOpacity style={{flex: 1, flexDirection: 'row', alignItems: 'center'}} onPress={() => toggleWorkoutExpand(workout.id)}>
-                                    <Ionicons name={workout.is_completed ? "checkmark-circle" : "time-outline"} size={22} color={workout.is_completed ? "#2ecc71" : "#888"} style={{marginRight: 10}} />
+                                    <Ionicons name={workout.is_completed ? "checkmark-circle" : "ellipse-outline"} size={22} color={workout.is_completed ? "#2ecc71" : "#f39c12"} style={{marginRight: 10}} />
                                     <View style={{flex: 1}}>
                                         <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
                                             <Text style={[styles.listName, workout.is_completed && styles.completedText]}>{workout.name}</Text>
@@ -660,22 +687,45 @@ const ClientDetailsScreen = () => {
                                     </View>
                                     <Ionicons name={expandedWorkouts.includes(workout.id) ? "chevron-up" : "chevron-down"} size={20} color="#888" />
                                 </TouchableOpacity>
-                                <View style={{flexDirection: 'row', marginLeft: 15, alignItems: 'center'}}>
-                                    <TouchableOpacity onPress={() => handleEditWorkout(workout)} style={{marginRight: 15}}><Ionicons name="pencil" size={20} color="#3498DB" /></TouchableOpacity>
-                                    <TouchableOpacity onPress={() => handleDeleteWorkout(workout.id)}><Ionicons name="trash" size={20} color="#e74c3c" /></TouchableOpacity>
+                                <View style={{flexDirection: 'row', marginLeft: 10, alignItems: 'center', gap: 12}}>
+                                    <TouchableOpacity onPress={() => handleEditWorkout(workout)} style={{padding: 4}}><Ionicons name="pencil" size={20} color="#3498DB" /></TouchableOpacity>
+                                    <TouchableOpacity onPress={() => handleDeleteWorkout(workout.id)} style={{padding: 4}}><Ionicons name="trash" size={20} color="#e74c3c" /></TouchableOpacity>
                                 </View>
                                 {expandedWorkouts.includes(workout.id) && (
                                     <View style={styles.detailBox}>
-                                        {safeParseJSON(workout.exercises).map((exo: any, idx: number) => (
-                                            <View key={idx} style={{marginBottom: 8}}>
-                                                <Text style={{color: '#3498DB', fontWeight: 'bold'}}>{exo.name}</Text>
-                                                {safeParseJSON(exo.sets_details).map((s: any, i: number) => (
-                                                    <Text key={i} style={{color: '#ccc', fontSize: 12, marginLeft: 10}}>
-                                                        Set {s.set_number}: {s.duration > 0 ? `${s.duration}s` : `${s.reps} reps`} {s.weight > 0 ? `@${s.weight}kg` : ''}
-                                                    </Text>
-                                                ))}
-                                            </View>
-                                        ))}
+                                        {safeParseJSON(workout.exercises).map((exo: any, idx: number) => {
+                                            const sets = safeParseJSON(exo.sets_details);
+                                            const isDur = sets.length > 0 && sets[0].duration > 0 && (!sets[0].reps || sets[0].reps === 0);
+                                            return (
+                                              <View key={idx} style={styles.exoDetailRow}>
+                                                <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 8}}>
+                                                    <Text style={styles.exoDetailName}>{idx+1}. {exo.name}</Text>
+                                                    {exo.muscle && (
+                                                      <View style={styles.exoMuscleBadge}>
+                                                        <Text style={styles.exoMuscleText}>{exo.muscle}</Text>
+                                                      </View>
+                                                    )}
+                                                </View>
+
+                                                {/* Sets header */}
+                                                <View style={{flexDirection: 'row', paddingHorizontal: 8, marginBottom: 4}}>
+                                                  <Text style={{color: '#888', fontSize: 11, width: 35}}>Set</Text>
+                                                  <Text style={{color: '#888', fontSize: 11, flex: 1, textAlign: 'center'}}>{isDur ? 'Time (s)' : 'Reps'}</Text>
+                                                  {!isDur && <Text style={{color: '#888', fontSize: 11, flex: 1, textAlign: 'center'}}>Weight (kg)</Text>}
+                                                </View>
+
+                                                <View style={styles.exoSetsContainer}>
+                                                    {sets.map((s: any, i: number) => (
+                                                        <View key={i} style={styles.exoSetRow}>
+                                                            <Text style={styles.exoSetNumber}>S{i + 1}</Text>
+                                                            <Text style={styles.exoSetValue}>{isDur ? (s.duration || 0) : (s.reps || 0)}</Text>
+                                                            {!isDur && <Text style={styles.exoSetWeight}>{s.weight > 0 ? `${s.weight} kg` : '-'}</Text>}
+                                                        </View>
+                                                    ))}
+                                                </View>
+                                              </View>
+                                            );
+                                        })}
                                     </View>
                                 )}
                             </View>
@@ -970,36 +1020,71 @@ const ClientDetailsScreen = () => {
                         ) : (
                             <View style={{ flex: 1 }}>
                                 <Text style={styles.modalTitle}>{editingWorkoutId ? "Edit Workout" : "Create Workout"}</Text>
-                                <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ flex: 1 }} keyboardDismissMode="on-drag">
+                                <ScrollView showsVerticalScrollIndicator={true} keyboardShouldPersistTaps="handled" style={{ flex: 1 }} keyboardDismissMode="on-drag" nestedScrollEnabled>
                                     <View style={styles.inputGroup}>
                                         <Text style={styles.inputLabelModal}>Workout Name</Text>
                                         <TextInput style={[styles.inputModal, {textAlign: 'left'}]} placeholder="e.g., Push Day" value={workoutName} onChangeText={setWorkoutName} placeholderTextColor="#888" />
                                     </View>
 
-                                    {exercises.length > 0 && (
-                                        <View style={{marginBottom: 20}}>
-                                            <Text style={[styles.inputLabelModal, {color: '#3498DB'}]}>Exercises List</Text>
-                                            {exercises.map((exo, index) => (
-                                            <View key={index} style={styles.exoItem}>
+                                    {exercises.length > 0 && exercises.map((exo, exoIndex) => (
+                                        <View key={exoIndex} style={styles.inlineExoCard}>
+                                            <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10}}>
                                                 <View style={{flex: 1}}>
-                                                <Text style={styles.exoName}>{exo.name}</Text>
-                                                {exo.sets_details.map((s: any, i: number) => (
-                                                    <Text key={i} style={styles.exoDetailsList}>
-                                                    S{s.set_number}: {s.duration > 0 ? `${s.duration}s` : `${s.reps} reps`} {s.weight > 0 ? `@ ${s.weight}kg` : ''}
-                                                    </Text>
-                                                ))}
+                                                    <Text style={{color: 'white', fontWeight: 'bold', fontSize: 16}}>{exo.name}</Text>
+                                                    {exo.muscle && <Text style={{color: '#3498DB', fontSize: 11, fontWeight: 'bold', marginTop: 2}}>{exo.muscle.toUpperCase()}</Text>}
                                                 </View>
-                                                <View style={{flexDirection: 'row'}}>
-                                                <TouchableOpacity onPress={() => handleEditExercise(index)} style={{marginRight: 15}}><Ionicons name="pencil" size={20} color="#3498DB" /></TouchableOpacity>
-                                                <TouchableOpacity onPress={() => setExercises(exercises.filter((_, i) => i !== index))}><Ionicons name="trash" size={20} color="#e74c3c" /></TouchableOpacity>
-                                                </View>
+                                                <TouchableOpacity onPress={() => handleRemoveExercise(exoIndex)} style={{padding: 6}}>
+                                                    <Ionicons name="trash-outline" size={22} color="#e74c3c" />
+                                                </TouchableOpacity>
                                             </View>
+
+                                            <View style={styles.setsHeader}>
+                                                <Text style={[styles.colHeader, {width: 30}]}>Set</Text>
+                                                <Text style={[styles.colHeader, {flex: 1, textAlign: 'center'}]}>
+                                                    {exo.type === 'duration' ? 'Time (s)' : 'Reps'}
+                                                </Text>
+                                                {exo.type === 'strength' && (
+                                                    <Text style={[styles.colHeader, {flex: 1, textAlign: 'center'}]}>Weight (kg)</Text>
+                                                )}
+                                                <View style={{width: 30}} />
+                                            </View>
+
+                                            {exo.sets_details.map((s: any, sIndex: number) => (
+                                                <View key={sIndex} style={styles.setRow}>
+                                                    <Text style={styles.setNumLabel}>S{sIndex + 1}</Text>
+                                                    <View style={{flex: 1, paddingHorizontal: 5}}>
+                                                        <TextInput
+                                                            style={styles.setInput}
+                                                            keyboardType="numeric"
+                                                            value={String(exo.type === 'duration' ? s.duration : s.reps)}
+                                                            onChangeText={(v) => handleInlineUpdateSet(exoIndex, sIndex, exo.type === 'duration' ? 'duration' : 'reps', v)}
+                                                            placeholderTextColor="#888"
+                                                        />
+                                                    </View>
+                                                    {exo.type === 'strength' && (
+                                                        <View style={{flex: 1, paddingHorizontal: 5}}>
+                                                            <TextInput
+                                                                style={styles.setInput}
+                                                                keyboardType="numeric"
+                                                                value={String(s.weight)}
+                                                                onChangeText={(v) => handleInlineUpdateSet(exoIndex, sIndex, 'weight', v)}
+                                                                placeholderTextColor="#888"
+                                                            />
+                                                        </View>
+                                                    )}
+                                                    <TouchableOpacity onPress={() => handleInlineRemoveSet(exoIndex, sIndex)} style={{width: 30, alignItems: 'flex-end'}}>
+                                                        <Ionicons name="close-circle" size={22} color="#e74c3c" />
+                                                    </TouchableOpacity>
+                                                </View>
                                             ))}
+                                            <TouchableOpacity style={styles.addSetBtn} onPress={() => handleInlineAddSet(exoIndex)}>
+                                                <Text style={{color: '#3498DB', fontWeight: 'bold'}}>+ Add Set</Text>
+                                            </TouchableOpacity>
                                         </View>
-                                    )}
+                                    ))}
 
                                     <View style={styles.addExoCard}>
-                                        <Text style={styles.addExoTitle}>{selectedExoData ? "Edit Exercise" : "Add New Exercise"}</Text>
+                                        <Text style={styles.addExoTitle}>Add Exercise</Text>
                                         <TouchableOpacity style={styles.exoSelectorBtn} onPress={() => setIsExoSelectorVisible(true)}>
                                             <Text style={{color: selectedExoData ? 'white' : '#888'}}>{selectedExoData ? selectedExoData.name : "Choose from list..."}</Text>
                                             <Ionicons name="chevron-down" size={20} color="#888" />
@@ -1007,16 +1092,20 @@ const ClientDetailsScreen = () => {
 
                                         {selectedExoData && (
                                             <>
-                                            <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 5, marginBottom: 5}}>
-                                                <Text style={{color: '#888', fontSize: 12, width: 40, fontWeight: 'bold'}}>Set</Text>
-                                                <Text style={{color: '#888', fontSize: 12, flex: 1, textAlign: 'center', fontWeight: 'bold'}}>{selectedExoData.type === 'strength' ? 'Reps' : 'Time (s)'}</Text>
-                                                {selectedExoData.type === 'strength' && <Text style={{color: '#888', fontSize: 12, flex: 1, textAlign: 'center', fontWeight: 'bold'}}>Weight</Text>}
+                                            <View style={styles.setsHeader}>
+                                                <Text style={[styles.colHeader, {width: 30}]}>Set</Text>
+                                                <Text style={[styles.colHeader, {flex: 1, textAlign: 'center'}]}>
+                                                    {selectedExoData.type === 'strength' ? 'Reps' : 'Time (s)'}
+                                                </Text>
+                                                {selectedExoData.type === 'strength' && (
+                                                    <Text style={[styles.colHeader, {flex: 1, textAlign: 'center'}]}>Weight (kg)</Text>
+                                                )}
                                                 <View style={{width: 30}} />
                                             </View>
 
                                             {currentSets.map((set, index) => (
                                                 <View key={index} style={styles.setRow}>
-                                                    <Text style={{color: '#3498DB', fontWeight: 'bold', width: 40}}>S{index + 1}</Text>
+                                                    <Text style={styles.setNumLabel}>S{index + 1}</Text>
                                                     <View style={{flex: 1, paddingHorizontal: 5}}>
                                                         <TextInput style={styles.setInput} keyboardType="numeric" value={selectedExoData.type === 'strength' ? set.reps : set.duration} onChangeText={(v) => handleUpdateSet(index, selectedExoData.type === 'strength' ? 'reps' : 'duration', v)} placeholderTextColor="#888" />
                                                     </View>
@@ -1029,11 +1118,11 @@ const ClientDetailsScreen = () => {
                                                 </View>
                                             ))}
                                             <TouchableOpacity style={styles.addSetBtn} onPress={handleAddSet}><Text style={{color: '#3498DB', fontWeight: 'bold'}}>+ Add Set</Text></TouchableOpacity>
-                                            <TouchableOpacity style={styles.addExoButton} onPress={handleConfirmExercise}><Text style={styles.buttonText}>Confirm Exercise</Text></TouchableOpacity>
+                                            <TouchableOpacity style={styles.confirmExoButton} onPress={handleConfirmExercise}><Text style={styles.buttonText}>Confirm Exercise</Text></TouchableOpacity>
                                             </>
                                         )}
                                     </View>
-                                    <View style={{ height: 20 }} />
+                                    <View style={{ height: 30 }} />
                                 </ScrollView>
 
                                 <View style={styles.modalActions}>
@@ -1122,6 +1211,15 @@ const styles = StyleSheet.create({
   completedText: { textDecorationLine: 'line-through', color: '#888' },
   emptyText: { color: '#888', fontStyle: 'italic', textAlign: 'center' },
   detailBox: { marginTop: 10, padding: 10, backgroundColor: '#1E2C3D', borderRadius: 10 },
+  exoDetailRow: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+  exoDetailName: { color: 'white', fontSize: 16, fontWeight: 'bold', marginRight: 10 },
+  exoMuscleBadge: { backgroundColor: '#2A4562', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
+  exoMuscleText: { color: '#3498DB', fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase' },
+  exoSetsContainer: { backgroundColor: '#232D3F', borderRadius: 8, padding: 10, marginTop: 5 },
+  exoSetRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
+  exoSetNumber: { color: '#888', fontSize: 13, fontWeight: 'bold', width: 35 },
+  exoSetValue: { color: 'white', fontSize: 14, fontWeight: 'bold', flex: 1, textAlign: 'center' },
+  exoSetWeight: { color: '#3498DB', fontSize: 14, fontWeight: 'bold', flex: 1, textAlign: 'center' },
   
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', padding: 20 },
   modalContent: { backgroundColor: '#1A1F2B', borderRadius: 15, padding: 20, borderWidth: 1, borderColor: '#3498DB', height: '85%' },
@@ -1158,13 +1256,14 @@ const styles = StyleSheet.create({
   saveButton: { backgroundColor: '#2ecc71' },
   buttonText: { color: 'white', fontWeight: 'bold' },
 
-  addExoCard: { backgroundColor: '#232D3F', padding: 15, borderRadius: 10, borderWidth: 1, borderColor: '#3498DB', borderStyle: 'dashed' },
+  addExoCard: { backgroundColor: '#232D3F', padding: 15, borderRadius: 10, borderWidth: 1, borderColor: '#3498DB', borderStyle: 'dashed', marginBottom: 10 },
   addExoTitle: { color: '#3498DB', fontWeight: 'bold', marginBottom: 15, textAlign: 'center', fontSize: 16 },
-  addExoButton: { backgroundColor: '#3498DB', padding: 12, borderRadius: 8, alignItems: 'center', marginTop: 15 },
-  exoItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#2A4562', padding: 10, borderRadius: 8, marginBottom: 8 },
-  exoName: { color: 'white', fontWeight: 'bold', fontSize: 16, marginBottom: 4 },
-  exoDetailsList: { color: '#ccc', fontSize: 13, marginTop: 2, paddingLeft: 10 },
+  confirmExoButton: { backgroundColor: '#3498DB', padding: 12, borderRadius: 8, alignItems: 'center', marginTop: 10 },
+  inlineExoCard: { backgroundColor: '#232D3F', padding: 15, borderRadius: 10, marginBottom: 12, borderLeftWidth: 3, borderLeftColor: '#2ecc71' },
   exoSelectorBtn: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#2A4562', padding: 15, borderRadius: 8, marginBottom: 15 },
+  setsHeader: { flexDirection: 'row', marginBottom: 5, paddingHorizontal: 5 },
+  colHeader: { color: '#888', fontSize: 12, fontWeight: 'bold' },
+  setNumLabel: { color: '#3498DB', fontWeight: 'bold', width: 30 },
   muscleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, backgroundColor: '#2A4562', borderRadius: 8, marginBottom: 8 },
   muscleRowText: { color: 'white', fontWeight: 'bold' },
   exoSearchResult: { padding: 15, borderBottomWidth: 1, borderBottomColor: '#333' },

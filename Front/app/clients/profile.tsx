@@ -13,11 +13,12 @@ const ProfileScreen = () => {
   const [loading, setLoading] = useState(true);
 
   // --- CONFIGURATION DES OBJECTIFS (Traductions & Icônes) ---
-  const goalConfig: { [key: string]: { label: string; icon: any; color: string } } = {
-    'lose_weight': { label: 'Lose Weight', icon: 'trending-down', color: '#E74C3C' },
-    'gain_muscle': { label: 'Gain Muscle', icon: 'barbell', color: '#2ECC71' },
-    'maintain': { label: 'Maintain Weight', icon: 'git-commit', color: '#F1C40F' },
-    'get_stronger': { label: 'Get Stronger', icon: 'flash', color: '#9B59B6' },
+  const goalConfig: { [key: string]: { label: string; color: string } } = {
+    'lose_weight': { label: 'Lose Weight', color: '#E74C3C' },
+    'gain_muscle': { label: 'Gain Muscle', color: '#2ECC71' },
+    'maintain': { label: 'Maintain Weight', color: '#F1C40F' },
+    'maintain_weight': { label: 'Maintain Weight', color: '#F1C40F' },
+    'get_stronger': { label: 'Get Stronger', color: '#9B59B6' },
   };
 
   const loadData = async () => {
@@ -50,10 +51,9 @@ const ProfileScreen = () => {
   const userGoalKey = user?.goal ? String(user.goal).toLowerCase() : '';
 
   // 🔥 3. On fait la correspondance, avec un texte de secours plus intelligent
-  const currentGoal = goalConfig[userGoalKey] || { 
-      label: user?.goal ? String(user.goal).replace('_', ' ') : 'Not specified', // Affiche la vraie valeur si pas trouvée
-      icon: 'help-circle', 
-      color: '#3498DB' 
+  const currentGoal = goalConfig[userGoalKey] || {
+      label: user?.goal ? String(user.goal).replace('_', ' ') : 'Not specified',
+      color: '#3498DB'
   };
 
   if (loading) {
@@ -112,10 +112,7 @@ const ProfileScreen = () => {
       <Text style={styles.sectionTitle}>Personal Goal</Text>
       <View style={styles.card}>
         <View style={styles.goalItem}>
-            <View style={[styles.iconCircle, { backgroundColor: `${currentGoal.color}20` }]}>
-                <Ionicons name={currentGoal.icon as any} size={24} color={currentGoal.color} />
-            </View>
-            <View style={{ marginLeft: 15 }}>
+            <View>
                 <Text style={styles.goalSub}>Primary objective</Text>
                 <Text style={[styles.goalText, { color: currentGoal.color, textTransform: 'capitalize' }]}>
                     {currentGoal.label}
