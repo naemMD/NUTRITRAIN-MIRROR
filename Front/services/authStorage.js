@@ -42,9 +42,11 @@ export const getUserDetails = async () => {
 
     const decoded = jwtDecode(token);
     const userId = decoded.userId;
-    const response = await axios.get(`${API_URL}/users/me/${userId}`);
+    const response = await axios.get(`${API_URL}/users/me/${userId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
-    if (response.status_code !== 200) {
+    if (response.status === 200) {
       console.log('User details fetched successfully');
       return response.data;
     } else {

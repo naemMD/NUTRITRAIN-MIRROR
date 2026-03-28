@@ -1048,7 +1048,7 @@ async def get_coach_home_summary(session: AsyncSession, coach_id: int):
 
 
 async def get_client_dashboard_stats(session: AsyncSession, client_id: int):
-    result_user = await session.execute(select(User).where(User.id == client_id))
+    result_user = await session.execute(select(Users).where(Users.id == client_id))
     client = result_user.scalars().first()
 
     if not client:
