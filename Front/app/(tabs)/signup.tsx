@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator } from 'react-native';
+import StapleLogo from '@/components/StapleLogo';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -246,10 +247,8 @@ const SignupPage = () => {
             <Ionicons name="arrow-back" size={28} color="#3498DB" />
           </TouchableOpacity>
           <View style={{ alignItems: 'center' }}>
-            <Text style={styles.appName}>
-              <Text style={styles.appNameWhite}>STRAPLE</Text>
-            </Text>
-            <Text style={{ color: '#888', fontSize: 9, letterSpacing: 2 }}>TRAIN SMART, LIVE STRONG</Text>
+            <StapleLogo fontSize={28} />
+            <Text style={{ color: '#888', fontSize: 9, letterSpacing: 2, marginTop: 4 }}>TRAIN SMART, LIVE STRONG</Text>
           </View>
           <TouchableOpacity style={styles.testButton} onPress={testServerConnection}>
             <Ionicons name="server-outline" size={24} color="#3498DB" />

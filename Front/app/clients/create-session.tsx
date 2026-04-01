@@ -9,7 +9,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import api from '@/services/api';
-import { getUniqueMuscles, getExercisesByMuscle, ExerciseType } from '@/constants/exercisesData';
+import { getUniqueMuscles, getExercisesByMuscle, ExerciseType, LOCAL_EXERCISES } from '@/constants/exercisesData';
+import YouTubeVideoModal from '@/components/YouTubeVideoModal';
 
 interface SetDetail {
   set_number: number;
@@ -44,6 +45,31 @@ const CreateSessionScreen = () => {
 
   const [selectedExoData, setSelectedExoData] = useState<any>(null);
   const [currentSets, setCurrentSets] = useState<SetDetail[]>([{ set_number: 1, reps: 10, weight: 0, duration: 0 }]);
+
+  // Video modal state
+  const [videoModalVisible, setVideoModalVisible] = useState(false);
+  const [videoExerciseName, setVideoExerciseName] = useState('');
+  const [videoUrl, setVideoUrl] = useState<string | undefined>(undefined);
+  const [reopenModalAfterVideo, setReopenModalAfterVideo] = useState(false);
+
+  const openVideoModal = (name: string, url?: string) => {
+    // If exercise selection modal is open, close it first (two modals can't stack on mobile)
+    if (modalVisible) {
+      setModalVisible(false);
+      setReopenModalAfterVideo(true);
+    }
+    setVideoExerciseName(name);
+    setVideoUrl(url || LOCAL_EXERCISES.find(e => e.name === name)?.videoUrl);
+    setTimeout(() => setVideoModalVisible(true), 300);
+  };
+
+  const closeVideoModal = () => {
+    setVideoModalVisible(false);
+    if (reopenModalAfterVideo) {
+      setReopenModalAfterVideo(false);
+      setTimeout(() => setModalVisible(true), 300);
+    }
+  };
 
   const onDateChange = (event: any, selectedDate?: Date) => {
     setShowDatePicker(Platform.OS === 'ios');
@@ -211,11 +237,14 @@ const CreateSessionScreen = () => {
                                 <Text style={styles.exoMuscleFinal}>{exo.muscle.toUpperCase()}</Text>
                             </View>
                             <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                                <TouchableOpacity onPress={() => handleEditExercise(exo)} style={{marginRight: 15}}>
+                                <TouchableOpacity onPress={() => openVideoModal(exo.name)} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}} style={{padding: 6, marginRight: 10}}>
+                                    <Ionicons name="videocam-outline" size={22} color="#3498DB" />
+                                </TouchableOpacity>
+                                <TouchableOpacity onPress={() => handleEditExercise(exo)} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}} style={{padding: 6, marginRight: 6}}>
                                     <Ionicons name="create-outline" size={22} color="#3498DB" />
                                 </TouchableOpacity>
-                                <TouchableOpacity onPress={() => removeExerciseFromList(exo.id)}>
-                                    <Ionicons name="trash-outline" size={22} color="#e74c3c" />
+                                <TouchableOpacity onPress={() => removeExerciseFromList(exo.id)} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}} style={{padding: 6}}>
+                                    <Ionicons name="close-circle" size={22} color="#e74c3c" />
                                 </TouchableOpacity>
                             </View>
                         </View>
@@ -224,13 +253,29 @@ const CreateSessionScreen = () => {
             )}
 
             <View style={styles.addExoCard}>
+                {selectedExoData && (
+                    <TouchableOpacity
+                        onPress={() => { setSelectedExoData(null); setCurrentSets([{ set_number: 1, reps: 10, weight: 0, duration: 0 }]); }}
+                        hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
+                        style={{position: 'absolute', top: 8, right: 8, zIndex: 10, padding: 4}}
+                    >
+                        <Ionicons name="close-circle" size={26} color="#e74c3c" />
+                    </TouchableOpacity>
+                )}
                 <Text style={styles.addExoTitle}>{selectedExoData ? "Configure Exercise" : "Add Exercise"}</Text>
-                <TouchableOpacity style={styles.exoSelectorBtn} onPress={openAddModal}>
-                    <Text style={{color: selectedExoData ? 'white' : '#888'}}>
-                        {selectedExoData ? selectedExoData.name : "Choose from list..."}
-                    </Text>
-                    <Ionicons name="chevron-down" size={20} color="#888" />
-                </TouchableOpacity>
+                <View style={{flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 15}}>
+                    <TouchableOpacity style={[styles.exoSelectorBtn, {flex: 1, marginBottom: 0}]} onPress={openAddModal}>
+                        <Text style={{color: selectedExoData ? 'white' : '#888', flex: 1}} numberOfLines={1}>
+                            {selectedExoData ? selectedExoData.name : "Choose from list..."}
+                        </Text>
+                        <Ionicons name="chevron-down" size={20} color="#888" />
+                    </TouchableOpacity>
+                    {selectedExoData && (
+                        <TouchableOpacity onPress={() => openVideoModal(selectedExoData.name)} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}} style={{padding: 10, backgroundColor: '#2A4562', borderRadius: 10, height: 46, width: 46, alignItems: 'center', justifyContent: 'center'}}>
+                            <Ionicons name="videocam-outline" size={26} color="#3498DB" />
+                        </TouchableOpacity>
+                    )}
+                </View>
 
                 {selectedExoData && (
                     <>
@@ -309,17 +354,35 @@ const CreateSessionScreen = () => {
                   data={listData}
                   keyExtractor={(_, index) => index.toString()}
                   renderItem={({item}) => (
-                      <TouchableOpacity 
-                        style={styles.modalItem}
-                        onPress={() => modalStep === 'muscles' ? handleSelectMuscle(item) : handleSelectExercise(item)}
-                      >
-                          <Text style={styles.modalItemText}>{typeof item === 'string' ? item.toUpperCase() : item.name}</Text>
-                          <Ionicons name="chevron-forward" size={20} color="#666" />
-                      </TouchableOpacity>
+                      <View style={styles.modalItem}>
+                          <TouchableOpacity
+                            style={{flex: 1, flexDirection: 'row', alignItems: 'center'}}
+                            onPress={() => modalStep === 'muscles' ? handleSelectMuscle(item) : handleSelectExercise(item)}
+                          >
+                              <Text style={[styles.modalItemText, {flex: 1}]}>{typeof item === 'string' ? item.toUpperCase() : item.name}</Text>
+                              <Ionicons name="chevron-forward" size={20} color="#666" />
+                          </TouchableOpacity>
+                          {modalStep === 'exercises' && typeof item !== 'string' && (
+                            <TouchableOpacity
+                              onPress={() => openVideoModal(item.name, item.videoUrl)}
+                              hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
+                              style={{paddingLeft: 14, paddingVertical: 10, paddingRight: 4, alignItems: 'center', justifyContent: 'center'}}
+                            >
+                              <Ionicons name="videocam-outline" size={24} color="#3498DB" />
+                            </TouchableOpacity>
+                          )}
+                      </View>
                   )}
               />
           </View>
       </Modal>
+
+      <YouTubeVideoModal
+        visible={videoModalVisible}
+        exerciseName={videoExerciseName}
+        videoUrl={videoUrl}
+        onClose={closeVideoModal}
+      />
     </View>
   );
 };
@@ -373,7 +436,7 @@ const styles = StyleSheet.create({
   modalContainer: { flex: 1, backgroundColor: '#1A1F2B' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, borderColor: '#2A4562', alignItems: 'center' },
   modalTitle: { color: 'white', fontSize: 18, fontWeight: 'bold' },
-  modalItem: { padding: 20, borderBottomWidth: 1, borderColor: '#2A4562', flexDirection: 'row', justifyContent: 'space-between' },
+  modalItem: { padding: 20, borderBottomWidth: 1, borderColor: '#2A4562', flexDirection: 'row', alignItems: 'center' },
   modalItemText: { color: 'white', fontSize: 16 }
 });
 

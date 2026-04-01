@@ -10,6 +10,7 @@ export interface ExerciseData {
   type: ExerciseType;
   difficulty: ExerciseDifficulty;
   body_zones: string[]; // zones stressed by this exercise — used for injury filtering
+  videoUrl?: string; // Optional override URL — if omitted, auto-searches YouTube by exercise name
 }
 
 export const LOCAL_EXERCISES: ExerciseData[] = [
@@ -25,6 +26,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'strength',
     difficulty: 'intermediate',
     body_zones: ['chest', 'right_shoulder', 'left_shoulder', 'right_tricep', 'left_tricep'],
+    videoUrl: 'https://www.youtube.com/watch?v=BkC7bIGqgjs',
   },
   {
     id: "chest_2",
@@ -35,6 +37,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'strength',
     difficulty: 'intermediate',
     body_zones: ['chest', 'right_shoulder', 'left_shoulder'],
+    videoUrl: 'https://www.youtube.com/watch?v=sh5ZsRpEZCw',
   },
   {
     id: "chest_3",
@@ -45,6 +48,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'strength',
     difficulty: 'beginner',
     body_zones: ['chest', 'right_shoulder', 'left_shoulder', 'right_tricep', 'left_tricep', 'right_wrist', 'left_wrist'],
+    videoUrl: 'https://www.youtube.com/watch?v=CnpU47x-W9Y',
   },
   {
     id: "chest_4",
@@ -55,6 +59,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'strength',
     difficulty: 'intermediate',
     body_zones: ['chest', 'right_shoulder', 'left_shoulder'],
+    videoUrl: 'https://www.youtube.com/watch?v=ETtXO4FW1EU',
   },
   {
     id: "chest_5",
@@ -65,6 +70,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'strength',
     difficulty: 'beginner',
     body_zones: ['chest', 'right_shoulder', 'left_shoulder'],
+    videoUrl: 'https://www.youtube.com/watch?v=LzFvciCdoW0',
   },
 
   // ═══════════════════════════════════════════════════════════════
@@ -79,6 +85,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'strength',
     difficulty: 'advanced',
     body_zones: ['lower_back', 'upper_back', 'right_thigh', 'left_thigh', 'right_hip', 'left_hip', 'right_forearm', 'left_forearm'],
+    videoUrl: 'https://www.youtube.com/watch?v=ZaTM37cfiDs',
   },
   {
     id: "back_2",
@@ -89,6 +96,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'strength',
     difficulty: 'intermediate',
     body_zones: ['upper_back', 'right_shoulder', 'left_shoulder', 'right_bicep', 'left_bicep'],
+    videoUrl: 'https://www.youtube.com/watch?v=aNUSgyWRJYA',
   },
   {
     id: "back_3",
@@ -99,6 +107,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'strength',
     difficulty: 'intermediate',
     body_zones: ['upper_back', 'lower_back', 'right_bicep', 'left_bicep'],
+    videoUrl: 'https://www.youtube.com/watch?v=FWJR5Ve8bnQ',
   },
   {
     id: "back_4",
@@ -109,6 +118,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'strength',
     difficulty: 'beginner',
     body_zones: ['upper_back', 'right_bicep', 'left_bicep'],
+    videoUrl: 'https://www.youtube.com/watch?v=fK6Drg0suic',
   },
   {
     id: "back_5",
@@ -119,6 +129,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'strength',
     difficulty: 'beginner',
     body_zones: ['upper_back', 'right_bicep', 'left_bicep'],
+    videoUrl: 'https://www.youtube.com/watch?v=vwHG9Jfu4sw',
   },
   {
     id: "back_6",
@@ -129,6 +140,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'strength',
     difficulty: 'intermediate',
     body_zones: ['upper_back', 'lower_back', 'right_bicep', 'left_bicep'],
+    videoUrl: 'https://www.youtube.com/watch?v=rvbjGSQ2tVE',
   },
 
   // ═══════════════════════════════════════════════════════════════
@@ -143,6 +155,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'strength',
     difficulty: 'intermediate',
     body_zones: ['right_thigh', 'left_thigh', 'right_hip', 'left_hip', 'right_knee', 'left_knee', 'lower_back'],
+    videoUrl: 'https://www.youtube.com/watch?v=f-KL4VNN96E',
   },
   {
     id: "legs_2",
@@ -153,6 +166,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'strength',
     difficulty: 'beginner',
     body_zones: ['right_thigh', 'left_thigh', 'right_knee', 'left_knee'],
+    videoUrl: 'https://www.youtube.com/watch?v=SYsrvCPiJ_I',
   },
   {
     id: "legs_3",
@@ -163,6 +177,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'strength',
     difficulty: 'beginner',
     body_zones: ['right_thigh', 'left_thigh', 'right_knee', 'left_knee', 'right_hip', 'left_hip'],
+    videoUrl: 'https://www.youtube.com/watch?v=Pbmj6xPo-Hw',
   },
   {
     id: "legs_4",
@@ -173,6 +188,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'strength',
     difficulty: 'beginner',
     body_zones: ['right_thigh', 'left_thigh', 'right_knee', 'left_knee'],
+    videoUrl: 'https://www.youtube.com/watch?v=xd9m2S_Rw4s',
   },
   {
     id: "legs_5",
@@ -183,6 +199,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'strength',
     difficulty: 'intermediate',
     body_zones: ['right_thigh', 'left_thigh', 'right_hip', 'left_hip', 'lower_back'],
+    videoUrl: 'https://www.youtube.com/watch?v=n9bLHqrlvnM',
   },
   {
     id: "legs_6",
@@ -193,6 +210,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'strength',
     difficulty: 'beginner',
     body_zones: ['right_thigh', 'left_thigh', 'right_knee', 'left_knee'],
+    videoUrl: 'https://www.youtube.com/watch?v=HLwdesktz60',
   },
   {
     id: "legs_7",
@@ -203,6 +221,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'strength',
     difficulty: 'intermediate',
     body_zones: ['right_thigh', 'left_thigh', 'right_knee', 'left_knee', 'right_hip', 'left_hip'],
+    videoUrl: 'https://www.youtube.com/watch?v=2C-uNgKwPLE',
   },
 
   // ═══════════════════════════════════════════════════════════════
@@ -217,6 +236,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'strength',
     difficulty: 'intermediate',
     body_zones: ['right_hip', 'left_hip', 'lower_back'],
+    videoUrl: 'https://www.youtube.com/watch?v=pBH7pKHn-dI',
   },
   {
     id: "glutes_2",
@@ -227,6 +247,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'strength',
     difficulty: 'beginner',
     body_zones: ['right_hip', 'left_hip', 'lower_back'],
+    videoUrl: 'https://www.youtube.com/watch?v=cg9CoF2A2vU',
   },
   {
     id: "glutes_3",
@@ -237,6 +258,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'strength',
     difficulty: 'beginner',
     body_zones: ['right_hip', 'left_hip'],
+    videoUrl: 'https://www.youtube.com/watch?v=5jJNfIlKTmg',
   },
 
   // ═══════════════════════════════════════════════════════════════
@@ -251,6 +273,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'strength',
     difficulty: 'intermediate',
     body_zones: ['right_shoulder', 'left_shoulder', 'right_tricep', 'left_tricep'],
+    videoUrl: 'https://www.youtube.com/watch?v=KP1sYz2VICk',
   },
   {
     id: "shoulders_2",
@@ -261,6 +284,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'strength',
     difficulty: 'beginner',
     body_zones: ['right_shoulder', 'left_shoulder'],
+    videoUrl: 'https://www.youtube.com/watch?v=PzsMitRdI_8',
   },
   {
     id: "shoulders_3",
@@ -271,6 +295,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'strength',
     difficulty: 'beginner',
     body_zones: ['right_shoulder', 'left_shoulder', 'right_trapezius', 'left_trapezius'],
+    videoUrl: 'https://www.youtube.com/watch?v=0Po47vvj9g4',
   },
   {
     id: "shoulders_4",
@@ -281,6 +306,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'strength',
     difficulty: 'intermediate',
     body_zones: ['right_shoulder', 'left_shoulder', 'right_tricep', 'left_tricep'],
+    videoUrl: 'https://www.youtube.com/watch?v=3fQaRVS3Azc',
   },
   {
     id: "shoulders_5",
@@ -291,6 +317,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'strength',
     difficulty: 'beginner',
     body_zones: ['right_shoulder', 'left_shoulder', 'upper_back'],
+    videoUrl: 'https://www.youtube.com/watch?v=buuYPLVXsJg',
   },
 
   // ═══════════════════════════════════════════════════════════════
@@ -305,6 +332,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'strength',
     difficulty: 'beginner',
     body_zones: ['right_trapezius', 'left_trapezius', 'neck'],
+    videoUrl: 'https://www.youtube.com/watch?v=ZtBuouRLoDY',
   },
   {
     id: "traps_2",
@@ -315,6 +343,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'strength',
     difficulty: 'beginner',
     body_zones: ['right_trapezius', 'left_trapezius', 'neck'],
+    videoUrl: 'https://www.youtube.com/watch?v=qvvJUKq7_sU',
   },
   {
     id: "traps_3",
@@ -325,6 +354,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'duration',
     difficulty: 'beginner',
     body_zones: ['right_trapezius', 'left_trapezius', 'right_forearm', 'left_forearm'],
+    videoUrl: 'https://www.youtube.com/watch?v=Fkzk_RqlYig',
   },
 
   // ═══════════════════════════════════════════════════════════════
@@ -339,6 +369,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'strength',
     difficulty: 'beginner',
     body_zones: ['right_bicep', 'left_bicep', 'right_forearm', 'left_forearm'],
+    videoUrl: 'https://www.youtube.com/watch?v=JJB8XgKltA8',
   },
   {
     id: "arms_2",
@@ -349,6 +380,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'strength',
     difficulty: 'intermediate',
     body_zones: ['right_tricep', 'left_tricep', 'right_shoulder', 'left_shoulder', 'chest'],
+    videoUrl: 'https://www.youtube.com/watch?v=Toa3QLz5I54',
   },
   {
     id: "arms_3",
@@ -359,6 +391,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'strength',
     difficulty: 'beginner',
     body_zones: ['right_tricep', 'left_tricep'],
+    videoUrl: 'https://www.youtube.com/watch?v=-KVa3M1uZfs',
   },
   {
     id: "arms_4",
@@ -369,6 +402,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'strength',
     difficulty: 'beginner',
     body_zones: ['right_bicep', 'left_bicep', 'right_forearm', 'left_forearm'],
+    videoUrl: 'https://www.youtube.com/watch?v=zC3nLlEvin4',
   },
   {
     id: "arms_5",
@@ -379,6 +413,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'strength',
     difficulty: 'beginner',
     body_zones: ['right_bicep', 'left_bicep'],
+    videoUrl: 'https://www.youtube.com/watch?v=gPRZchwuVcA',
   },
   {
     id: "arms_6",
@@ -389,6 +424,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'strength',
     difficulty: 'beginner',
     body_zones: ['right_tricep', 'left_tricep', 'right_elbow', 'left_elbow'],
+    videoUrl: 'https://www.youtube.com/watch?v=W6h3t9mkRrY',
   },
 
   // ═══════════════════════════════════════════════════════════════
@@ -403,6 +439,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'duration',
     difficulty: 'beginner',
     body_zones: ['abs', 'lower_back'],
+    videoUrl: 'https://www.youtube.com/watch?v=fH38PJuNYOU',
   },
   {
     id: "abs_2",
@@ -413,6 +450,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'strength',
     difficulty: 'intermediate',
     body_zones: ['abs', 'right_hip', 'left_hip'],
+    videoUrl: 'https://www.youtube.com/watch?v=7xqlO7G-PHQ',
   },
   {
     id: "abs_3",
@@ -423,6 +461,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'strength',
     difficulty: 'beginner',
     body_zones: ['abs'],
+    videoUrl: 'https://www.youtube.com/watch?v=AV5PmZJIrrw',
   },
   {
     id: "abs_4",
@@ -433,6 +472,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'duration',
     difficulty: 'beginner',
     body_zones: ['abs', 'right_hip', 'left_hip', 'right_shoulder', 'left_shoulder'],
+    videoUrl: 'https://www.youtube.com/watch?v=ixxk9Qfn61o',
   },
   {
     id: "abs_5",
@@ -443,6 +483,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'strength',
     difficulty: 'beginner',
     body_zones: ['abs', 'lower_back'],
+    videoUrl: 'https://www.youtube.com/watch?v=wkD8rjkodUI',
   },
 
   // ═══════════════════════════════════════════════════════════════
@@ -457,6 +498,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'strength',
     difficulty: 'beginner',
     body_zones: ['right_calf', 'left_calf', 'right_ankle', 'left_ankle'],
+    videoUrl: 'https://www.youtube.com/watch?v=qmihweq30nA',
   },
   {
     id: "calves_2",
@@ -467,6 +509,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'strength',
     difficulty: 'beginner',
     body_zones: ['right_calf', 'left_calf', 'right_ankle', 'left_ankle'],
+    videoUrl: 'https://www.youtube.com/watch?v=hWO8AbhWEUI',
   },
   {
     id: "calves_3",
@@ -477,6 +520,7 @@ export const LOCAL_EXERCISES: ExerciseData[] = [
     type: 'strength',
     difficulty: 'beginner',
     body_zones: ['right_calf', 'left_calf', 'right_ankle', 'left_ankle'],
+    videoUrl: 'https://www.youtube.com/watch?v=Wh8EXjjr6JU',
   },
 
   // ═══════════════════════════════════════════════════════════════

@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:www.muscleandstrength.com)",
+      "WebFetch(domain:wger.de)",
+      "WebFetch(domain:www.google.com)",
+      "WebSearch",
+      "WebFetch(domain:www.youtube.com)",
+      "WebFetch(domain:consent.youtube.com)",
+      "WebFetch(domain:lite.duckduckgo.com)",
+      "WebFetch(domain:m.youtube.com)",
+      "WebFetch(domain:webcache.googleusercontent.com)",
+      "WebFetch(domain:web.archive.org)",
+      "WebFetch(domain:vid.puffyan.us)",
+      "WebFetch(domain:inv.nadeko.net)",
+      "WebFetch(domain:invidious.fdn.fr)",
+      "WebFetch(domain:api.piped.yt)",
+      "WebFetch(domain:noembed.com)",
+      "WebFetch(domain:socialblade.com)",
+      "WebFetch(domain:videos.feedspot.com)",
+      "WebFetch(domain:www.ytmaxer.com)",
+      "WebFetch(domain:html.duckduckgo.com)",
+      "WebFetch(domain:www.bing.com)",
+      "WebFetch(domain:www.fontmirror.com)",
+      "WebFetch(domain:font.download)",
+      "Bash(curl -L -o /tmp/bukhari-script.zip \"https://font.download/dl/font/bukhari-script.zip\")",
+      "Bash(unzip -o /tmp/bukhari-script.zip -d /tmp/bukhari-font/)",
+      "Read(//tmp/**)"
+    ]
+  }
+}

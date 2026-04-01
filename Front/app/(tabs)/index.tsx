@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ImageBackground, Image } from 'react-native';
+import StapleLogo from '@/components/StapleLogo';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
@@ -28,10 +29,8 @@ const Index = () => {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.logoContainer}>
-        <Text style={styles.appName}>
-          <Text style={styles.appNameWhite}>STRAPLE</Text>
-        </Text>
-        <Text style={{ color: '#888', fontSize: 9, letterSpacing: 2 }}>TRAIN SMART, LIVE STRONG</Text>
+        <StapleLogo fontSize={36} />
+        <Text style={{ color: '#888', fontSize: 9, letterSpacing: 2, marginTop: 4 }}>TRAIN SMART, LIVE STRONG</Text>
       </View>
       
       <View style={styles.contentContainer}>

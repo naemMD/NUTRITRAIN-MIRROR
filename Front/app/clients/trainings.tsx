@@ -8,8 +8,9 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { Ionicons } from '@expo/vector-icons';
 import api from '@/services/api';
-import { getUniqueMuscles, getExercisesByMuscle, getSafeExercises } from '@/constants/exercisesData';
+import { getUniqueMuscles, getExercisesByMuscle, getSafeExercises, LOCAL_EXERCISES } from '@/constants/exercisesData';
 import { getUserDetails } from '@/services/authStorage';
+import YouTubeVideoModal from '@/components/YouTubeVideoModal';
 
 LocaleConfig.locales['en'] = {
   monthNames: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
@@ -54,6 +55,38 @@ const TrainingDashboard = () => {
   const [collapsedDays, setCollapsedDays] = useState<Set<number>>(new Set());
   const [aiRemaining, setAiRemaining] = useState<number | null>(null);
   const AI_WEEKLY_LIMIT = 14;
+
+  // Video modal state
+  const [videoModalVisible, setVideoModalVisible] = useState(false);
+  const [videoExerciseName, setVideoExerciseName] = useState('');
+  const [videoUrl, setVideoUrl] = useState<string | undefined>(undefined);
+  const [reopenModalAfterVideo, setReopenModalAfterVideo] = useState<'addExo' | 'detail' | null>(null);
+
+  const openVideoModal = (name: string, url?: string, fromModal?: 'addExo' | 'detail') => {
+    // Close any open modal first (two modals can't stack on mobile)
+    if (fromModal === 'addExo' && addExoModalVisible) {
+      setAddExoModalVisible(false);
+      setReopenModalAfterVideo('addExo');
+    } else if (fromModal === 'detail' && detailModalVisible) {
+      setDetailModalVisible(false);
+      setReopenModalAfterVideo('detail');
+    }
+    setVideoExerciseName(name);
+    setVideoUrl(url || LOCAL_EXERCISES.find(e => e.name === name)?.videoUrl);
+    setTimeout(() => setVideoModalVisible(true), fromModal ? 300 : 0);
+  };
+
+  const closeVideoModal = () => {
+    setVideoModalVisible(false);
+    if (reopenModalAfterVideo) {
+      const toReopen = reopenModalAfterVideo;
+      setReopenModalAfterVideo(null);
+      setTimeout(() => {
+        if (toReopen === 'addExo') setAddExoModalVisible(true);
+        else if (toReopen === 'detail') setDetailModalVisible(true);
+      }, 300);
+    }
+  };
 
   const FOCUS_OPTIONS = injuries.length > 0
     ? ['Adapted Full Body', 'Upper Body', 'Lower Body', 'Push', 'Pull', 'Core', 'Cardio']
@@ -721,6 +754,9 @@ const TrainingDashboard = () => {
                                             <Text style={styles.detailMuscle}>{exo.muscle}</Text>
                                         </View>
                                         <View style={{flex: 1}} />
+                                        <TouchableOpacity onPress={() => openVideoModal(exo.name, undefined, 'detail')} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}} style={{padding: 6, marginRight: 8}}>
+                                            <Ionicons name="videocam-outline" size={22} color="#3498DB" />
+                                        </TouchableOpacity>
                                         <TouchableOpacity onPress={() => removeExercise(exoIdx)} style={{padding: 4}}>
                                             <Ionicons name="trash-outline" size={20} color="#e74c3c" />
                                         </TouchableOpacity>
@@ -809,13 +845,24 @@ const TrainingDashboard = () => {
                   data={addExoListData}
                   keyExtractor={(_, index) => index.toString()}
                   renderItem={({item}) => (
-                      <TouchableOpacity
-                        style={styles.addExoModalItem}
-                        onPress={() => addExoStep === 'muscles' ? handleAddExoSelectMuscle(item) : handleAddExoSelect(item)}
-                      >
-                          <Text style={{color: 'white', fontSize: 16}}>{typeof item === 'string' ? item.toUpperCase() : item.name}</Text>
-                          <Ionicons name="chevron-forward" size={20} color="#666" />
-                      </TouchableOpacity>
+                      <View style={styles.addExoModalItem}>
+                          <TouchableOpacity
+                            style={{flex: 1, flexDirection: 'row', alignItems: 'center'}}
+                            onPress={() => addExoStep === 'muscles' ? handleAddExoSelectMuscle(item) : handleAddExoSelect(item)}
+                          >
+                              <Text style={{color: 'white', fontSize: 16, flex: 1}}>{typeof item === 'string' ? item.toUpperCase() : item.name}</Text>
+                              <Ionicons name="chevron-forward" size={20} color="#666" />
+                          </TouchableOpacity>
+                          {addExoStep === 'exercises' && typeof item !== 'string' && (
+                            <TouchableOpacity
+                              onPress={() => openVideoModal(item.name, item.videoUrl, 'addExo')}
+                              hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
+                              style={{paddingLeft: 14, paddingVertical: 10, paddingRight: 4, alignItems: 'center', justifyContent: 'center'}}
+                            >
+                              <Ionicons name="videocam-outline" size={24} color="#3498DB" />
+                            </TouchableOpacity>
+                          )}
+                      </View>
                   )}
               />
           </View>
@@ -1002,6 +1049,9 @@ const TrainingDashboard = () => {
                               <View key={eIdx} style={styles.previewExoRow}>
                                 <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3}}>
                                   <Text style={styles.previewExoName}>{eIdx + 1}. {ex.name}</Text>
+                                  <TouchableOpacity onPress={() => openVideoModal(ex.name)} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}} style={{padding: 4, marginRight: 6}}>
+                                    <Ionicons name="videocam-outline" size={18} color="#3498DB" />
+                                  </TouchableOpacity>
                                   <View style={styles.previewMuscleBadge}>
                                     <Text style={styles.previewMuscleText}>{ex.muscle}</Text>
                                   </View>
@@ -1049,6 +1099,13 @@ const TrainingDashboard = () => {
           </View>
         </View>
       </Modal>
+
+      <YouTubeVideoModal
+        visible={videoModalVisible}
+        exerciseName={videoExerciseName}
+        videoUrl={videoUrl}
+        onClose={closeVideoModal}
+      />
 
     </View>
   );
@@ -1124,7 +1181,7 @@ const styles = StyleSheet.create({
 
   addExoModalContainer: { flex: 1, backgroundColor: '#1A1F2B' },
   addExoModalHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, borderColor: '#2A4562', alignItems: 'center' },
-  addExoModalItem: { padding: 20, borderBottomWidth: 1, borderColor: '#2A4562', flexDirection: 'row', justifyContent: 'space-between' },
+  addExoModalItem: { padding: 20, borderBottomWidth: 1, borderColor: '#2A4562', flexDirection: 'row', alignItems: 'center' },
 
   aiModalContainer: { backgroundColor: '#1A1F2B', borderRadius: 20, padding: 14, marginHorizontal: 6, borderWidth: 1, borderColor: '#f39c12' },
   aiModalHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },

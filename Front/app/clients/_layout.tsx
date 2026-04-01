@@ -1,5 +1,6 @@
 import { Stack, router, useSegments } from "expo-router";
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
+import StapleLogo from "@/components/StapleLogo";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useState, useEffect, useCallback } from "react";
@@ -78,10 +79,8 @@ export default function ClientLayout() {
             )}
 
             <View style={{ alignItems: 'center' }}>
-              <Text style={styles.appName}>
-                <Text style={styles.appNameWhite}>STRAPLE</Text>
-              </Text>
-              <Text style={{ color: '#888', fontSize: 9, letterSpacing: 2 }}>TRAIN SMART, LIVE STRONG</Text>
+              <StapleLogo fontSize={22} />
+              <Text style={{ color: '#888', fontSize: 9, letterSpacing: 2, marginTop: 2 }}>TRAIN SMART, LIVE STRONG</Text>
             </View>
 
             {isSpecialPage ? (
