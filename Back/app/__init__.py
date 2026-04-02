@@ -22,7 +22,8 @@ def create_app():
     origins = [
         "http://localhost",
         "http://localhost:8081",
-        "https://straple.vercel.app"
+        "https://stapleapp.fr",
+        "https://www.stapleapp.fr",
     ]
 
     app.add_middleware(

@@ -52,7 +52,7 @@ export default function CoachLayout() {
     pathname === "/coachs/subscription" ||
     pathname === "/coachs/client-details";
 
-  // 🔥 On crée une variable spécifique pour les pages qui ne doivent avoir AUCUN header (Straple)
+  // 🔥 On crée une variable spécifique pour les pages qui ne doivent avoir AUCUN header (Staple)
   const hideGlobalHeader = pathname === "/coachs/client-details";
 
   return (
@@ -79,7 +79,7 @@ export default function CoachLayout() {
             {/* TITLE */}
             <View style={{ alignItems: 'center' }}>
               <StapleLogo fontSize={22} />
-              <Text style={{ color: '#888', fontSize: 9, letterSpacing: 2, marginTop: 2 }}>TRAIN SMART, LIVE STRONG</Text>
+              <Text style={{ color: '#888', fontSize: 7, letterSpacing: 1, marginTop: 2 }}>TRAIN SMART, LIVE STRONG</Text>
             </View>
 
             {/* RIGHT SIDE: Subscription Star */}

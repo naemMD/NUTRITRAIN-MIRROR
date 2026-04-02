@@ -8,6 +8,7 @@ import Constants from 'expo-constants';
 import Toast from 'react-native-toast-message';
 import { getCurrentLocation, requestLocationPermission } from '@/services/crossLocation';
 import axios from 'axios';
+import CGUModal from '@/components/CGUModal';
 
 // 🔥 IMPORT DÉCOMMENTÉ : Indispensable pour l'auto-login
 import { saveSession } from '@/services/authStorage';
@@ -34,9 +35,13 @@ const SignupPage = () => {
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  
+
   const [errorField, setErrorField] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const [cguAccepted, setCguAccepted] = useState(false);
+  const [showCGUModal, setShowCGUModal] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
   const [citySearch, setCitySearch] = useState('');
   const [cityResults, setCityResults] = useState<any[]>([]);
@@ -155,7 +160,12 @@ const SignupPage = () => {
       Toast.show({ type: 'error', text1: 'Erreur', text2: 'Please select if you are a client or coach' });
       return false;
     }
-    
+
+    if (!cguAccepted) {
+      Toast.show({ type: 'error', text1: 'Terms Required', text2: 'Please accept the Terms of Service to continue.' });
+      return false;
+    }
+
     return true;
   };
   
@@ -500,9 +510,48 @@ const SignupPage = () => {
           </TouchableOpacity>
         </View>
         
-        <Text style={styles.termsText}>
-          By signing up, you agree to our Terms of Service and Privacy Policy
-        </Text>
+        {/* Terms of Service section */}
+        <View style={styles.cguSection}>
+          <TouchableOpacity
+            style={styles.cguCheckboxRow}
+            onPress={() => {
+              if (cguAccepted) {
+                setCguAccepted(false);
+              } else {
+                setShowCGUModal(true);
+              }
+            }}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.cguCheckbox, cguAccepted && styles.cguCheckboxChecked]}>
+              {cguAccepted && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
+            </View>
+            <Text style={styles.cguLabel}>
+              I have read and accept the{' '}
+              <Text style={styles.cguLink}>Terms of Service</Text>
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <CGUModal
+          visible={showCGUModal}
+          contentType="terms"
+          onClose={() => setShowCGUModal(false)}
+          onAccept={() => {
+            setCguAccepted(true);
+            setShowCGUModal(false);
+          }}
+          onOpenPrivacyPolicy={() => {
+            setShowCGUModal(false);
+            setShowPrivacyModal(true);
+          }}
+        />
+
+        <CGUModal
+          visible={showPrivacyModal}
+          contentType="privacy"
+          onClose={() => setShowPrivacyModal(false)}
+        />
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -581,6 +630,12 @@ const styles = StyleSheet.create({
   loginText: { color: '#FFFFFF', fontSize: 16 },
   loginLink: { color: '#3498DB', fontSize: 16, fontWeight: 'bold' },
   termsText: { color: '#8A8D91', fontSize: 14, textAlign: 'center', marginBottom: 20 },
+  cguSection: { marginBottom: 30 },
+  cguCheckboxRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
+  cguCheckbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 2, borderColor: '#3498DB', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  cguCheckboxChecked: { backgroundColor: '#3498DB' },
+  cguLabel: { color: '#FFFFFF', fontSize: 14, flex: 1 },
+  cguLink: { color: '#3498DB', textDecorationLine: 'underline' },
 });
 
 export default SignupPage;

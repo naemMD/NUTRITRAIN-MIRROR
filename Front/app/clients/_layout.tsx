@@ -80,7 +80,7 @@ export default function ClientLayout() {
 
             <View style={{ alignItems: 'center' }}>
               <StapleLogo fontSize={22} />
-              <Text style={{ color: '#888', fontSize: 9, letterSpacing: 2, marginTop: 2 }}>TRAIN SMART, LIVE STRONG</Text>
+              <Text style={{ color: '#888', fontSize: 7, letterSpacing: 1, marginTop: 2 }}>TRAIN SMART, LIVE STRONG</Text>
             </View>
 
             {isSpecialPage ? (

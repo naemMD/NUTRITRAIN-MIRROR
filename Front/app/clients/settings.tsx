@@ -4,9 +4,12 @@ import { crossAlert } from '@/services/crossAlert';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { clearSession } from '@/services/authStorage';
+import CGUModal from '@/components/CGUModal';
 
 const SettingsPage = () => {
   const router = useRouter();
+  const [showTerms, setShowTerms] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
 
   const [notifications, setNotifications] = useState({
     meals: true,
@@ -64,7 +67,7 @@ const SettingsPage = () => {
 
         <Text style={styles.sectionLabel}>PERSONAL DETAILS</Text>
         <View style={styles.sectionCard}>
-          <SettingRow icon="person-outline" title="Edit Profile Info" onPress={() => {}} />
+          <SettingRow icon="person-outline" title="Edit Profile Info" onPress={() => router.push('/clients/profile')} />
           <SettingRow icon="medical-outline" title="Health Metrics (BMI, Body Fat)" onPress={() => {}} />
           <SettingRow icon="lock-closed-outline" title="Change Password" onPress={() => {}} isLast />
         </View>
@@ -117,7 +120,8 @@ const SettingsPage = () => {
         <Text style={styles.sectionLabel}>HELP & LEGAL</Text>
         <View style={styles.sectionCard}>
           <SettingRow icon="help-circle-outline" title="Help Center" onPress={() => {}} />
-          <SettingRow icon="document-text-outline" title="Privacy Policy" onPress={() => {}} isLast />
+          <SettingRow icon="document-text-outline" title="Terms of Service" onPress={() => setShowTerms(true)} />
+          <SettingRow icon="shield-checkmark-outline" title="Privacy Policy" onPress={() => setShowPrivacy(true)} isLast />
         </View>
 
         <Text style={styles.sectionLabel}>DANGER ZONE</Text>
@@ -133,6 +137,21 @@ const SettingsPage = () => {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      <CGUModal
+        visible={showTerms}
+        contentType="terms"
+        onClose={() => setShowTerms(false)}
+        onOpenPrivacyPolicy={() => {
+          setShowTerms(false);
+          setShowPrivacy(true);
+        }}
+      />
+      <CGUModal
+        visible={showPrivacy}
+        contentType="privacy"
+        onClose={() => setShowPrivacy(false)}
+      />
     </View>
   );
 };

@@ -1,11 +1,11 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 
-interface StrapleLogoProps {
+interface StapleLogoProps {
   fontSize?: number;
 }
 
-export default function StapleLogo({ fontSize = 28 }: StrapleLogoProps) {
+export default function StapleLogo({ fontSize = 28 }: StapleLogoProps) {
   const sSize = fontSize;
   const restSize = fontSize * 0.7;
   // Very subtle blue reflection — barely visible, like a faint blue glow/shadow
@@ -38,8 +38,8 @@ export default function StapleLogo({ fontSize = 28 }: StrapleLogoProps) {
         </Text>
       </View>
 
-      {/* "traple" in lowercase — smaller than the S */}
-      <Text style={[styles.rest, { fontSize: restSize, lineHeight: sSize * 1.15, marginLeft: -1 }]}>traple</Text>
+      {/* "taple" in lowercase — smaller than the S */}
+      <Text style={[styles.rest, { fontSize: restSize, lineHeight: sSize * 1.15, marginLeft: -1 }]}>taple</Text>
     </View>
   );
 }

@@ -1,7 +1,7 @@
 export default {
   expo: {
-    name: "Straple",
-    slug: "Straple",
+    name: "Staple",
+    slug: "Staple",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
@@ -45,8 +45,8 @@ export default {
     },
 
     extra: {
-      // API_URL: "http://192.168.1.53:8080"
-      API_URL: "https://nutri-f0dxc3e8chd9f0g2.spaincentral-01.azurewebsites.net"
+      API_URL: "http://192.168.1.53:8080"
+      // API_URL: "https://nutri-f0dxc3e8chd9f0g2.spaincentral-01.azurewebsites.net"
     }
   }
 };
