@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Switch } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Switch, Platform } from 'react-native';
 import { crossAlert } from '@/services/crossAlert';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { clearSession } from '@/services/authStorage';
 import CGUModal from '@/components/CGUModal';
+import { useInstallPrompt } from '@/hooks/useInstallPrompt';
 
 const SettingsScreen = () => {
   const router = useRouter();
   const [showTerms, setShowTerms] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
+  const { canShow, canNativeInstall, isIOS, isAndroidManual, promptInstall, state: installState } = useInstallPrompt();
   const [notifications, setNotifications] = useState(true);
   const [biometric, setBiometric] = useState(false);
 
@@ -79,14 +81,57 @@ const SettingsScreen = () => {
         <SettingItem icon="shield-checkmark-outline" title="Privacy Policy" onPress={() => setShowPrivacy(true)} isLast />
       </View>
 
+      {Platform.OS === 'web' && canShow && installState !== 'installed' && (
+        <>
+          <Text style={styles.sectionLabel}>INSTALL APP</Text>
+          <View style={styles.sectionCard}>
+            {canNativeInstall ? (
+              <SettingItem
+                icon="download-outline"
+                title="Add to Home Screen"
+                color="#3498DB"
+                onPress={promptInstall}
+                isLast
+              />
+            ) : isIOS ? (
+              <View style={[styles.item, { borderBottomWidth: 0 }]}>
+                <View style={styles.itemLeft}>
+                  <Ionicons name="download-outline" size={22} color="#3498DB" style={{ width: 30 }} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.itemTitle, { color: '#3498DB' }]}>Add to Home Screen</Text>
+                    <Text style={styles.installHint}>
+                      Tap the Share button then "Add to Home Screen"
+                    </Text>
+                  </View>
+                </View>
+                <Ionicons name="share-outline" size={20} color="#3498DB" />
+              </View>
+            ) : isAndroidManual ? (
+              <View style={[styles.item, { borderBottomWidth: 0 }]}>
+                <View style={styles.itemLeft}>
+                  <Ionicons name="download-outline" size={22} color="#3498DB" style={{ width: 30 }} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.itemTitle, { color: '#3498DB' }]}>Add to Home Screen</Text>
+                    <Text style={styles.installHint}>
+                      Tap the menu ⋮ then "Add to Home Screen"
+                    </Text>
+                  </View>
+                </View>
+                <Ionicons name="ellipsis-vertical" size={20} color="#3498DB" />
+              </View>
+            ) : null}
+          </View>
+        </>
+      )}
+
       <Text style={styles.sectionLabel}>DANGER ZONE</Text>
       <View style={styles.sectionCard}>
-        <SettingItem 
-            icon="log-out-outline" 
-            title="Sign Out" 
-            color="#e74c3c" 
-            onPress={handleLogout} 
-            isLast 
+        <SettingItem
+            icon="log-out-outline"
+            title="Sign Out"
+            color="#e74c3c"
+            onPress={handleLogout}
+            isLast
         />
       </View>
 
@@ -126,7 +171,8 @@ const styles = StyleSheet.create({
   itemLeft: { flexDirection: 'row', alignItems: 'center' },
   itemTitle: { color: 'white', fontSize: 15, marginLeft: 10 },
   itemValue: { color: '#3498DB', fontSize: 14, fontWeight: '600' },
-  version: { textAlign: 'center', color: '#555', fontSize: 11, marginTop: 10 }
+  version: { textAlign: 'center', color: '#555', fontSize: 11, marginTop: 10 },
+  installHint: { color: '#8A8D91', fontSize: 12, marginTop: 2, marginLeft: 10 },
 });
 
 export default SettingsScreen;

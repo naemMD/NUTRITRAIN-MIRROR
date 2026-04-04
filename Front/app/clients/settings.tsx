@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Switch } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Switch, Platform } from 'react-native';
 import { crossAlert } from '@/services/crossAlert';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { clearSession } from '@/services/authStorage';
 import CGUModal from '@/components/CGUModal';
+import { useInstallPrompt } from '@/hooks/useInstallPrompt';
 
 const SettingsPage = () => {
   const router = useRouter();
   const [showTerms, setShowTerms] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
+  const { canShow, canNativeInstall, isIOS, isAndroidManual, promptInstall, state: installState } = useInstallPrompt();
 
   const [notifications, setNotifications] = useState({
     meals: true,
@@ -124,14 +126,57 @@ const SettingsPage = () => {
           <SettingRow icon="shield-checkmark-outline" title="Privacy Policy" onPress={() => setShowPrivacy(true)} isLast />
         </View>
 
+        {Platform.OS === 'web' && canShow && installState !== 'installed' && (
+          <>
+            <Text style={styles.sectionLabel}>INSTALL APP</Text>
+            <View style={styles.sectionCard}>
+              {canNativeInstall ? (
+                <SettingRow
+                  icon="download-outline"
+                  title="Add to Home Screen"
+                  color="#3498DB"
+                  onPress={promptInstall}
+                  isLast
+                />
+              ) : isIOS ? (
+                <View style={styles.item}>
+                  <View style={styles.itemLeft}>
+                    <Ionicons name="download-outline" size={22} color="#3498DB" style={{ width: 30 }} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.itemTitle, { color: '#3498DB' }]}>Add to Home Screen</Text>
+                      <Text style={styles.installHint}>
+                        Tap the Share button then "Add to Home Screen"
+                      </Text>
+                    </View>
+                  </View>
+                  <Ionicons name="share-outline" size={20} color="#3498DB" />
+                </View>
+              ) : isAndroidManual ? (
+                <View style={styles.item}>
+                  <View style={styles.itemLeft}>
+                    <Ionicons name="download-outline" size={22} color="#3498DB" style={{ width: 30 }} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.itemTitle, { color: '#3498DB' }]}>Add to Home Screen</Text>
+                      <Text style={styles.installHint}>
+                        Tap the menu ⋮ then "Add to Home Screen"
+                      </Text>
+                    </View>
+                  </View>
+                  <Ionicons name="ellipsis-vertical" size={20} color="#3498DB" />
+                </View>
+              ) : null}
+            </View>
+          </>
+        )}
+
         <Text style={styles.sectionLabel}>DANGER ZONE</Text>
         <View style={styles.sectionCard}>
-          <SettingRow 
-            icon="log-out-outline" 
-            title="Log Out" 
-            color="#e74c3c" 
-            onPress={handleLogout} 
-            isLast 
+          <SettingRow
+            icon="log-out-outline"
+            title="Log Out"
+            color="#e74c3c"
+            onPress={handleLogout}
+            isLast
           />
         </View>
 
@@ -216,6 +261,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginTop: 10,
     marginBottom: 30,
+  },
+  installHint: {
+    color: '#8A8D91',
+    fontSize: 12,
+    marginTop: 2,
+    marginLeft: 10,
   },
 });
 
