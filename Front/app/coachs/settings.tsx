@@ -81,7 +81,7 @@ const SettingsScreen = () => {
         <SettingItem icon="shield-checkmark-outline" title="Privacy Policy" onPress={() => setShowPrivacy(true)} isLast />
       </View>
 
-      {Platform.OS === 'web' && canShow && installState !== 'installed' && (
+      {canShow && installState !== 'installed' && (
         <>
           <Text style={styles.sectionLabel}>INSTALL APP</Text>
           <View style={styles.sectionCard}>
