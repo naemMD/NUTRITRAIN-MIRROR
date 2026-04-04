@@ -1,18 +1,26 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, Pressable } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import StapleLogo from '@/components/StapleLogo';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useInstallPrompt } from '@/hooks/useInstallPrompt';
 
 import { getToken, getUserDetails } from '@/services/authStorage';
 
 const Index = () => {
   const insets = useSafeAreaInsets();
   const navigation = useRouter();
-  const { canShow, canNativeInstall, isIOS, isAndroidManual, promptInstall, state } = useInstallPrompt();
+  const [isWeb, setIsWeb] = useState(false);
   const [installDismissed, setInstallDismissed] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+      // Only show on mobile-sized screens
+      if (window.innerWidth < 1024) {
+        setIsWeb(true);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     const checkLogin = async () => {
@@ -29,8 +37,6 @@ const Index = () => {
     checkLogin();
   }, []);
 
-  const showInstall = canShow && state !== 'installed' && !installDismissed;
-
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.logoContainer}>
@@ -45,45 +51,37 @@ const Index = () => {
         </Text>
       </View>
 
-      {showInstall && (
+      {isWeb && !installDismissed && (
         <View style={styles.installCard}>
           <View style={styles.installHeader}>
             <Ionicons name="download-outline" size={22} color="#3498DB" />
             <Text style={styles.installTitle}>Install Staple App</Text>
-            <Pressable onPress={() => setInstallDismissed(true)} hitSlop={8}>
+            <TouchableOpacity onPress={() => setInstallDismissed(true)}>
               <Ionicons name="close" size={18} color="#8A8D91" />
-            </Pressable>
+            </TouchableOpacity>
           </View>
-          {canNativeInstall ? (
-            <Pressable style={styles.installButton} onPress={promptInstall}>
-              <Text style={styles.installButtonText}>Add to Home Screen</Text>
-            </Pressable>
-          ) : isIOS ? (
-            <Text style={styles.installHint}>
-              Tap the Share button (bottom bar) then "Add to Home Screen"
-            </Text>
-          ) : isAndroidManual ? (
-            <Text style={styles.installHint}>
-              Tap the menu button then "Add to Home Screen"
-            </Text>
-          ) : null}
+          <Text style={styles.installHint}>
+            To install this app on your phone, tap the Share button in your browser toolbar, then select "Add to Home Screen".
+          </Text>
         </View>
       )}
 
       <View style={styles.buttonContainer}>
-        <Pressable
-          style={({ pressed }) => [styles.loginButton, pressed && styles.buttonPressed]}
+        <TouchableOpacity
+          style={styles.loginButton}
           onPress={() => navigation.push('/login')}
+          activeOpacity={0.7}
         >
           <Text style={styles.loginButtonText}>Log In</Text>
-        </Pressable>
+        </TouchableOpacity>
 
-        <Pressable
-          style={({ pressed }) => [styles.signupButton, pressed && styles.buttonPressed]}
+        <TouchableOpacity
+          style={styles.signupButton}
           onPress={() => navigation.push('/signup')}
+          activeOpacity={0.7}
         >
           <Text style={styles.signupButtonText}>Sign Up</Text>
-        </Pressable>
+        </TouchableOpacity>
       </View>
 
       <Text style={styles.footerText}>Your personal fitness & nutrition app</Text>
@@ -133,7 +131,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginBottom: 10,
+    marginBottom: 8,
   },
   installTitle: {
     color: '#fff',
@@ -146,17 +144,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 20,
   },
-  installButton: {
-    backgroundColor: '#3498DB',
-    borderRadius: 8,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  installButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '700',
-  },
   buttonContainer: {
     width: '100%',
     marginBottom: 40,
@@ -167,6 +154,8 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     alignItems: 'center',
     marginBottom: 15,
+    // @ts-ignore — cursor is valid on web
+    cursor: 'pointer',
   },
   loginButtonText: {
     color: '#FFFFFF',
@@ -178,14 +167,13 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingVertical: 15,
     alignItems: 'center',
+    // @ts-ignore
+    cursor: 'pointer',
   },
   signupButtonText: {
     color: '#2A4562',
     fontSize: 18,
     fontWeight: 'bold',
-  },
-  buttonPressed: {
-    opacity: 0.7,
   },
   footerText: {
     color: '#FFFFFF',

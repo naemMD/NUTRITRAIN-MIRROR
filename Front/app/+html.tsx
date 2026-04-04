@@ -25,6 +25,7 @@ export default function Root({ children }: PropsWithChildren) {
         <link rel="apple-touch-icon" sizes="373x373" href="/app/icons/icon-373.png" />
 
         {/* Load BukhariScript font via CSS for reliable web rendering */}
+        {/* Fix iOS Safari: force cursor pointer on all touchable/pressable elements */}
         <style dangerouslySetInnerHTML={{ __html: `
           @font-face {
             font-family: 'BukhariScript';
@@ -32,6 +33,12 @@ export default function Root({ children }: PropsWithChildren) {
             font-weight: normal;
             font-style: normal;
             font-display: swap;
+          }
+          [role="button"], [data-focusable="true"], button, a {
+            cursor: pointer !important;
+          }
+          [onClick], [data-testid] {
+            cursor: pointer !important;
           }
         `}} />
 
