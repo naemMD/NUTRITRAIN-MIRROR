@@ -1,0 +1,20 @@
+{
+  "name": "Staple - Train Smart, Live Strong",
+  "short_name": "Staple",
+  "description": "Track meals, follow personalized workouts, and reach your fitness goals with an AI coach.",
+  "start_url": "/app",
+  "scope": "/app/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#1A1F2B",
+  "background_color": "#1A1F2B",
+  "lang": "fr",
+  "icons": [
+    {
+      "src": "/app/icons/icon-373x373.png",
+      "sizes": "373x373",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "buildCommand": "bash scripts/build.sh",
+  "outputDirectory": "dist",
+  "installCommand": "cd Front && npm install",
+  "rewrites": [
+    {
+      "source": "/app/:path((?!_expo|assets|icons|manifest\\.json|sw\\.js).*)",
+      "destination": "/app/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/app/sw.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache" },
+        { "key": "Service-Worker-Allowed", "value": "/app/" }
+      ]
+    },
+    {
+      "source": "/app/manifest.json",
+      "headers": [
+        { "key": "Content-Type", "value": "application/manifest+json" }
+      ]
+    }
+  ]
+}

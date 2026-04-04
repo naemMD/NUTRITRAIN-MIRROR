@@ -4,9 +4,11 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { Platform } from 'react-native';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { InstallAppBanner } from '@/components/InstallAppBanner';
 import Toast from 'react-native-toast-message';
 
 SplashScreen.preventAutoHideAsync();
@@ -17,6 +19,15 @@ export default function RootLayout() {
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
     BukhariScript: require('../assets/fonts/BukhariScript.ttf'),
   });
+
+  // Register Service Worker on web only
+  useEffect(() => {
+    if (Platform.OS === 'web' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker
+        .register('/app/sw.js', { scope: '/app/' })
+        .catch((err) => console.warn('SW registration failed:', err));
+    }
+  }, []);
 
   useEffect(() => {
     if (loaded) {
@@ -36,6 +47,7 @@ export default function RootLayout() {
       </Stack>
       <Toast />
       <StatusBar style="auto" />
+      {Platform.OS === 'web' && <InstallAppBanner />}
     </ThemeProvider>
   );
 }
