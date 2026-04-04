@@ -12,20 +12,10 @@ export default function Root({ children }: PropsWithChildren) {
           content="width=device-width, initial-scale=1, shrink-to-fit=no"
         />
 
-        {/* PWA — manifest scoped to /app */}
         <link rel="manifest" href="/app/manifest.json" />
         <meta name="theme-color" content="#1A1F2B" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta
-          name="apple-mobile-web-app-status-bar-style"
-          content="black-translucent"
-        />
-        <meta name="apple-mobile-web-app-title" content="Staple" />
         <link rel="apple-touch-icon" sizes="180x180" href="/app/icons/apple-touch-icon.png" />
-        <link rel="apple-touch-icon" sizes="373x373" href="/app/icons/icon-373.png" />
 
-        {/* Load BukhariScript font via CSS for reliable web rendering */}
-        {/* Fix iOS Safari: force cursor pointer on all touchable/pressable elements */}
         <style dangerouslySetInnerHTML={{ __html: `
           @font-face {
             font-family: 'BukhariScript';
@@ -34,17 +24,11 @@ export default function Root({ children }: PropsWithChildren) {
             font-style: normal;
             font-display: swap;
           }
-          [role="button"], [data-focusable="true"], button, a {
-            cursor: pointer !important;
-          }
-          [onClick], [data-testid] {
-            cursor: pointer !important;
-          }
         `}} />
 
         <ScrollViewStyleReset />
       </head>
-      <body>{children}</body>
+      <body style={{ overflow: "hidden" }}>{children}</body>
     </html>
   );
 }
