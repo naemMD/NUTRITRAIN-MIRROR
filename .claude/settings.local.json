@@ -30,7 +30,9 @@
       "Bash(chmod +x /c/Users/meddour/dev/EIP/NUTRITRAIN-MIRROR/scripts/build.sh)",
       "Bash(git add:*)",
       "Bash(git commit -m ':*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(npx sharp-cli:*)",
+      "Bash(npx --yes sharp-cli resize 180 180 -i public/icons/icon-373.png -o public/icons/apple-touch-icon.png)"
     ]
   }
 }
