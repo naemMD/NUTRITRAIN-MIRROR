@@ -33,12 +33,15 @@ export function useInstallPrompt() {
       return;
     }
 
-    const ua = navigator.userAgent;
+    const ua = navigator.userAgent || "";
 
-    // Detect iOS
+    // Detect iOS — multiple methods for reliability
     const isIOS =
       /iPad|iPhone|iPod/.test(ua) ||
-      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+      // iPad on iOS 13+ reports as Mac
+      (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1) ||
+      // Fallback: old navigator.platform
+      /iPad|iPhone|iPod/.test(navigator.platform || "");
 
     // Detect Android
     const isAndroid = /Android/i.test(ua);
@@ -48,7 +51,7 @@ export function useInstallPrompt() {
       isIOS ||
       isAndroid ||
       /webOS|BlackBerry|Opera Mini|IEMobile|Mobile/i.test(ua) ||
-      (navigator.maxTouchPoints > 0 && window.innerWidth < 768);
+      ("ontouchstart" in window && window.innerWidth < 768);
 
     // Desktop — don't show banner
     if (!isMobile) {
@@ -95,15 +98,10 @@ export function useInstallPrompt() {
 
   return {
     state,
-    /** true when the banner should be visible */
     canShow: state === "ios" || state === "android-ready" || state === "android-manual",
-    /** true if one-tap native install is available */
     canNativeInstall: state === "android-ready",
-    /** true if we need to show iOS share instructions */
     isIOS: state === "ios",
-    /** true if Android but no native prompt — show manual instructions */
     isAndroidManual: state === "android-manual",
-    /** Trigger the native Chrome install prompt */
     promptInstall,
   };
 }

@@ -1,6 +1,5 @@
-import { Platform, Pressable, StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useInstallPrompt } from "@/hooks/useInstallPrompt";
-import { ThemedText } from "@/components/ThemedText";
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 
@@ -22,33 +21,31 @@ export function InstallAppBanner() {
       <View style={styles.content}>
         <Ionicons name="download-outline" size={28} color="#3498DB" />
         <View style={styles.text}>
-          <ThemedText style={styles.title}>Installer Staple</ThemedText>
+          <Text style={styles.title}>Installer Staple</Text>
 
           {isIOS && (
-            <ThemedText style={styles.subtitle}>
-              Appuyez sur{" "}
-              <Ionicons name="share-outline" size={13} color="#3498DB" /> puis
-              "Sur l'ecran d'accueil"
-            </ThemedText>
+            <Text style={styles.subtitle}>
+              Appuyez sur le bouton Partager puis "Sur l'ecran d'accueil"
+            </Text>
           )}
 
           {isAndroidManual && (
-            <ThemedText style={styles.subtitle}>
+            <Text style={styles.subtitle}>
               Menu ⋮ puis "Ajouter a l'ecran d'accueil"
-            </ThemedText>
+            </Text>
           )}
 
           {canNativeInstall && (
-            <ThemedText style={styles.subtitle}>
+            <Text style={styles.subtitle}>
               Ajoutez l'app sur votre ecran d'accueil
-            </ThemedText>
+            </Text>
           )}
         </View>
       </View>
 
       {canNativeInstall && (
         <Pressable style={styles.button} onPress={promptInstall}>
-          <ThemedText style={styles.buttonText}>Installer</ThemedText>
+          <Text style={styles.buttonText}>Installer</Text>
         </Pressable>
       )}
     </View>
@@ -57,7 +54,8 @@ export function InstallAppBanner() {
 
 const styles = StyleSheet.create({
   banner: {
-    position: "absolute",
+    // @ts-ignore — position: fixed is valid CSS on web
+    position: "fixed",
     bottom: 16,
     left: 16,
     right: 16,
@@ -68,9 +66,8 @@ const styles = StyleSheet.create({
     padding: 16,
     flexDirection: "row",
     alignItems: "center",
-    ...(Platform.OS === "web"
-      ? { boxShadow: "0 8px 32px rgba(0,0,0,0.4)" }
-      : {}),
+    // @ts-ignore
+    boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
     zIndex: 9999,
   },
   close: {
