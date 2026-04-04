@@ -5,11 +5,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 
 export function InstallAppBanner() {
-  const { canPrompt, isIOS, promptInstall, state } = useInstallPrompt();
+  const { canShow, canNativeInstall, isIOS, isAndroidManual, promptInstall, state } =
+    useInstallPrompt();
   const [dismissed, setDismissed] = useState(false);
 
-  // Only render on web, and only if we can show something
-  if (Platform.OS !== "web" || !canPrompt || dismissed || state === "installed") {
+  if (Platform.OS !== "web" || !canShow || dismissed || state === "installed") {
     return null;
   }
 
@@ -23,13 +23,22 @@ export function InstallAppBanner() {
         <Ionicons name="download-outline" size={28} color="#3498DB" />
         <View style={styles.text}>
           <ThemedText style={styles.title}>Installer Staple</ThemedText>
-          {isIOS ? (
+
+          {isIOS && (
             <ThemedText style={styles.subtitle}>
               Appuyez sur{" "}
-              <Ionicons name="share-outline" size={14} color="#3498DB" /> puis
+              <Ionicons name="share-outline" size={13} color="#3498DB" /> puis
               "Sur l'ecran d'accueil"
             </ThemedText>
-          ) : (
+          )}
+
+          {isAndroidManual && (
+            <ThemedText style={styles.subtitle}>
+              Menu ⋮ puis "Ajouter a l'ecran d'accueil"
+            </ThemedText>
+          )}
+
+          {canNativeInstall && (
             <ThemedText style={styles.subtitle}>
               Ajoutez l'app sur votre ecran d'accueil
             </ThemedText>
@@ -37,7 +46,7 @@ export function InstallAppBanner() {
         </View>
       </View>
 
-      {!isIOS && (
+      {canNativeInstall && (
         <Pressable style={styles.button} onPress={promptInstall}>
           <ThemedText style={styles.buttonText}>Installer</ThemedText>
         </Pressable>
@@ -59,7 +68,6 @@ const styles = StyleSheet.create({
     padding: 16,
     flexDirection: "row",
     alignItems: "center",
-    // Web shadow
     ...(Platform.OS === "web"
       ? { boxShadow: "0 8px 32px rgba(0,0,0,0.4)" }
       : {}),
