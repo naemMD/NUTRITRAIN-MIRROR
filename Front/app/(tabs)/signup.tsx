@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, TextInput, Pressable, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator } from 'react-native';
 import StapleLogo from '@/components/StapleLogo';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -253,16 +253,16 @@ const SignupPage = () => {
     >
       <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.back()}>
+          <Pressable onPress={() => navigation.back()}>
             <Ionicons name="arrow-back" size={28} color="#3498DB" />
-          </TouchableOpacity>
+          </Pressable>
           <View style={{ alignItems: 'center' }}>
             <StapleLogo fontSize={28} />
             <Text style={{ color: '#888', fontSize: 9, letterSpacing: 2, marginTop: 4 }}>TRAIN SMART, LIVE STRONG</Text>
           </View>
-          <TouchableOpacity style={styles.testButton} onPress={testServerConnection}>
+          <Pressable style={styles.testButton} onPress={testServerConnection}>
             <Ionicons name="server-outline" size={24} color="#3498DB" />
-          </TouchableOpacity>
+          </Pressable>
         </View>
         
         <Text style={styles.title}>Create Account</Text>
@@ -291,12 +291,12 @@ const SignupPage = () => {
 
           <Text style={styles.inputLabel}>Gender</Text>
           <View style={styles.userGenderContainer}>
-            <TouchableOpacity style={[styles.userGenderButton, userGender === 'male' && styles.selectedUserGender]} onPress={() => setUserGender('male')}>
+            <Pressable style={[styles.userGenderButton, userGender === 'male' && styles.selectedUserGender]} onPress={() => setUserGender('male')}>
                 <Text style={[styles.userGenderText, userGender === 'male' && styles.selectedUserGenderText]}>Male</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.userGenderButton, userGender === 'female' && styles.selectedUserGender]} onPress={() => setUserGender('female')}>
+            </Pressable>
+            <Pressable style={[styles.userGenderButton, userGender === 'female' && styles.selectedUserGender]} onPress={() => setUserGender('female')}>
                 <Text style={[styles.userGenderText, userGender === 'female' && styles.selectedUserGenderText]}>Female</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View> 
 
           <Text style={styles.inputLabel}>Age</Text>
@@ -333,9 +333,9 @@ const SignupPage = () => {
               value={password} 
               onChangeText={(text) => { setPassword(text); setErrorField(''); }} 
             />
-            <TouchableOpacity style={styles.eyeIcon} onPress={() => setShowPassword(!showPassword)}>
+            <Pressable style={styles.eyeIcon} onPress={() => setShowPassword(!showPassword)}>
               <Ionicons name={showPassword ? "eye-off" : "eye"} size={24} color="#FFFFFF" />
-            </TouchableOpacity>
+            </Pressable>
           </View>
           
           <Text style={styles.inputLabel}>Confirm Password</Text>
@@ -349,19 +349,19 @@ const SignupPage = () => {
               value={confirmPassword} 
               onChangeText={(text) => { setConfirmPassword(text); setErrorField(''); }} 
             />
-            <TouchableOpacity style={styles.eyeIcon} onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+            <Pressable style={styles.eyeIcon} onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
               <Ionicons name={showConfirmPassword ? "eye-off" : "eye"} size={24} color="#FFFFFF" />
-            </TouchableOpacity>
+            </Pressable>
           </View>
           
           <Text style={styles.inputLabel}>I am a:</Text>
           <View style={[styles.userTypeContainer, errorField === 'userType' && { borderWidth: 1, borderColor: '#FF6B6B', borderRadius: 10 }]}>
-            <TouchableOpacity style={[styles.userTypeButton, userType === 'client' && styles.selectedUserType]} onPress={() => { setUserType('client'); setErrorField(''); }}>
+            <Pressable style={[styles.userTypeButton, userType === 'client' && styles.selectedUserType]} onPress={() => { setUserType('client'); setErrorField(''); }}>
               <Text style={[styles.userTypeText, userType === 'client' && styles.selectedUserTypeText]}>Client</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.userTypeButton, userType === 'coach' && styles.selectedUserType]} onPress={() => { setUserType('coach'); setErrorField(''); }}>
+            </Pressable>
+            <Pressable style={[styles.userTypeButton, userType === 'coach' && styles.selectedUserType]} onPress={() => { setUserType('coach'); setErrorField(''); }}>
               <Text style={[styles.userTypeText, userType === 'coach' && styles.selectedUserTypeText]}>Coach</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
 
           {userType === 'coach' && (
@@ -389,7 +389,7 @@ const SignupPage = () => {
                             keyboardShouldPersistTaps="handled"
                         >
                             {cityResults.map((item, index) => (
-                                <TouchableOpacity 
+                                <Pressable 
                                     key={index} 
                                     style={styles.dropdownItem}
                                     onPress={() => handleSelectCity(item)}
@@ -398,7 +398,7 @@ const SignupPage = () => {
                                     <Text style={{ color: '#8A8D91', fontSize: 12, marginTop: 2 }}>
                                         {item.admin1 ? `${item.admin1}, ` : ''}{item.country}
                                     </Text>
-                                </TouchableOpacity>
+                                </Pressable>
                             ))}
                         </ScrollView>
                     </View>
@@ -432,7 +432,7 @@ const SignupPage = () => {
                             keyboardShouldPersistTaps="handled"
                         >
                             {cityResults.map((item, index) => (
-                                <TouchableOpacity
+                                <Pressable
                                     key={index}
                                     style={styles.dropdownItem}
                                     onPress={() => handleSelectCity(item)}
@@ -441,7 +441,7 @@ const SignupPage = () => {
                                     <Text style={{ color: '#8A8D91', fontSize: 12, marginTop: 2 }}>
                                         {item.admin1 ? `${item.admin1}, ` : ''}{item.country}
                                     </Text>
-                                </TouchableOpacity>
+                                </Pressable>
                             ))}
                         </ScrollView>
                     </View>
@@ -462,7 +462,7 @@ const SignupPage = () => {
               <Text style={styles.inputLabel}>Main Goal</Text>
               <View style={styles.goalContainer}>
                 {['lose_weight', 'maintain_weight', 'gain_muscle'].map((g) => (
-                  <TouchableOpacity
+                  <Pressable
                     key={g}
                     style={[styles.goalButton, goal === g && styles.selectedGoalButton]}
                     onPress={() => setGoal(g)}
@@ -470,7 +470,7 @@ const SignupPage = () => {
                     <Text style={[styles.goalText, goal === g && styles.selectedGoalText]}>
                       {g === 'lose_weight' ? 'Weight Loss' : g === 'maintain_weight' ? 'Maintain' : 'Muscle Gain'}
                     </Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 ))}
               </View>
 
@@ -480,7 +480,7 @@ const SignupPage = () => {
                 { value: 'intermediate', label: 'Intermediate', desc: '6 months to 2 years of consistent training' },
                 { value: 'advanced', label: 'Advanced', desc: 'Over 2 years of serious, structured training' },
               ].map((lvl) => (
-                <TouchableOpacity
+                <Pressable
                   key={lvl.value}
                   style={[styles.fitnessLevelOption, fitnessLevel === lvl.value && styles.fitnessLevelOptionSelected]}
                   onPress={() => setFitnessLevel(lvl.value)}
@@ -492,27 +492,27 @@ const SignupPage = () => {
                       <Text style={styles.fitnessLevelDesc}>{lvl.desc}</Text>
                     </View>
                   </View>
-                </TouchableOpacity>
+                </Pressable>
               ))}
             </View>
           )}
 
         </View>
         
-        <TouchableOpacity style={[styles.signupButton, loading && styles.signupButtonDisabled]} onPress={handleRegister} disabled={loading}>
+        <Pressable style={[styles.signupButton, loading && styles.signupButtonDisabled]} onPress={handleRegister} disabled={loading}>
           {loading ? <ActivityIndicator color="white" /> : <Text style={styles.signupButtonText}>Sign Up</Text>}
-        </TouchableOpacity>
+        </Pressable>
         
         <View style={styles.loginContainer}>
           <Text style={styles.loginText}>Already have an account? </Text>
-          <TouchableOpacity onPress={() => navigation.push('/(tabs)/login')}>
+          <Pressable onPress={() => navigation.push('/(tabs)/login')}>
             <Text style={styles.loginLink}>Log In</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
         
         {/* Terms of Service section */}
         <View style={styles.cguSection}>
-          <TouchableOpacity
+          <Pressable
             style={styles.cguCheckboxRow}
             onPress={() => {
               if (cguAccepted) {
@@ -530,7 +530,7 @@ const SignupPage = () => {
               I have read and accept the{' '}
               <Text style={styles.cguLink}>Terms of Service</Text>
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
         <CGUModal

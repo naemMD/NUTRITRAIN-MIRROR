@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { StyleSheet, Text, View, TextInput, Pressable, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import StapleLogo from '@/components/StapleLogo';
 import { crossAlert } from '@/services/crossAlert';
 import { Ionicons } from '@expo/vector-icons';
@@ -98,9 +98,9 @@ const LoginPage = () => {
     >
       <ScrollView contentContainerStyle={styles.scrollContainer} keyboardDismissMode="on-drag">
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.back()} style={{width: 38}}>
+          <Pressable onPress={() => navigation.back()} style={{width: 38}}>
             <Ionicons name="arrow-back" size={28} color="#3498DB" />
-          </TouchableOpacity>
+          </Pressable>
           <View style={{ alignItems: 'center' }}>
             <StapleLogo fontSize={28} />
             <Text style={{ color: '#888', fontSize: 9, letterSpacing: 2, marginTop: 4 }}>TRAIN SMART, LIVE STRONG</Text>
@@ -139,7 +139,7 @@ const LoginPage = () => {
               value={password}
               onChangeText={setPassword}
             />
-            <TouchableOpacity 
+            <Pressable 
               style={styles.eyeIcon}
               onPress={() => setShowPassword(!showPassword)}
             >
@@ -148,16 +148,16 @@ const LoginPage = () => {
                 size={24} 
                 color="#FFFFFF" 
               />
-            </TouchableOpacity>
+            </Pressable>
           </View>
           
-          <TouchableOpacity style={styles.forgotPasswordContainer}>
+          <Pressable style={styles.forgotPasswordContainer}>
             <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-          </TouchableOpacity>
+          </Pressable>
 
           <Text style={styles.inputLabel}>I am a:</Text>
           <View style={styles.userTypeContainer}>
-              <TouchableOpacity 
+              <Pressable 
               style={[
                   styles.userTypeButton, 
                   userType === 'client' && styles.selectedUserType
@@ -168,9 +168,9 @@ const LoginPage = () => {
                   styles.userTypeText,
                   userType === 'client' && styles.selectedUserTypeText
               ]}>Client</Text>
-              </TouchableOpacity>
+              </Pressable>
             
-              <TouchableOpacity 
+              <Pressable 
               style={[
                   styles.userTypeButton, 
                   userType === 'coach' && styles.selectedUserType
@@ -181,23 +181,23 @@ const LoginPage = () => {
                   styles.userTypeText,
                   userType === 'coach' && styles.selectedUserTypeText
               ]}>Coach</Text>
-              </TouchableOpacity>
+              </Pressable>
           </View>
         </View>
         
-        <TouchableOpacity 
+        <Pressable 
           style={[styles.loginButton, loading && styles.loginButtonDisabled]}
           onPress={handleLogin}
           disabled={loading}
         >
           <Text style={styles.loginButtonText}>{loading ? 'Logging in...' : 'Log In'}</Text>
-        </TouchableOpacity>
+        </Pressable>
         
         <View style={styles.signupContainer}>
           <Text style={styles.signupText}>Don't have an account? </Text>
-          <TouchableOpacity onPress={() => navigation.push('/(tabs)/signup')}>
+          <Pressable onPress={() => navigation.push('/(tabs)/signup')}>
             <Text style={styles.signupLink}>Sign Up</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
