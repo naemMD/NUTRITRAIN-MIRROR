@@ -9,7 +9,7 @@ export function InstallAppBanner() {
     useInstallPrompt();
   const [dismissed, setDismissed] = useState(false);
 
-  if (Platform.OS !== "web" || !canShow || dismissed || state === "installed") {
+  if (!canShow || dismissed || state === "installed") {
     return null;
   }
 

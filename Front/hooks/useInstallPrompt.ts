@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Platform } from "react-native";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
@@ -14,12 +13,16 @@ export type InstallState =
   | "installed"      // user accepted install
   | "dismissed";     // user dismissed the banner
 
+function isRunningOnWeb(): boolean {
+  return typeof window !== "undefined" && typeof document !== "undefined";
+}
+
 export function useInstallPrompt() {
   const [state, setState] = useState<InstallState>("hidden");
   const deferredPrompt = useRef<BeforeInstallPromptEvent | null>(null);
 
   useEffect(() => {
-    if (Platform.OS !== "web") return;
+    if (!isRunningOnWeb()) return;
 
     // Already running as installed PWA
     if (
@@ -37,9 +40,15 @@ export function useInstallPrompt() {
       /iPad|iPhone|iPod/.test(ua) ||
       (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 
-    // Detect mobile (but not iOS)
-    const isMobileAndroid = /Android/i.test(ua);
-    const isMobile = isIOS || isMobileAndroid || /Mobile/i.test(ua);
+    // Detect Android
+    const isAndroid = /Android/i.test(ua);
+
+    // Detect any mobile browser
+    const isMobile =
+      isIOS ||
+      isAndroid ||
+      /webOS|BlackBerry|Opera Mini|IEMobile|Mobile/i.test(ua) ||
+      (navigator.maxTouchPoints > 0 && window.innerWidth < 768);
 
     // Desktop — don't show banner
     if (!isMobile) {
@@ -47,13 +56,13 @@ export function useInstallPrompt() {
       return;
     }
 
-    // iOS Safari — always show manual instructions
+    // iOS — always show manual share instructions
     if (isIOS) {
       setState("ios");
       return;
     }
 
-    // Android/mobile — start with manual, upgrade if prompt fires
+    // Android/other mobile — start with manual, upgrade if native prompt fires
     setState("android-manual");
 
     const onPrompt = (e: Event) => {
