@@ -1,8 +1,8 @@
-# 🏋️‍♂️ Straple – Votre coach intelligent pour un suivi sportif optimal
+# 🏋️‍♂️ Staple – Votre coach intelligent pour un suivi sportif optimal
 
-![Straple Logo](Assets/Logo_Nutritrain.png)  
+![Staple Logo](Front/public/icons/icon-2000.png)  
 
-**Straple** est une application innovante qui optimise votre entraînement et votre nutrition grâce à l'intelligence artificielle. Elle aide les sportifs de tous niveaux à **suivre leur progression, adapter leurs entraînements en cas de blessure, gérer leur nutrition et interagir avec leur coach**.
+**Staple** est une application innovante qui optimise votre entraînement et votre nutrition grâce à l'intelligence artificielle. Elle aide les sportifs de tous niveaux à **suivre leur progression, adapter leurs entraînements en cas de blessure, gérer leur nutrition et interagir avec leur coach**.
 
 ---
 
@@ -16,21 +16,15 @@
 
 ---
 
-## 📸 Aperçu de l'application  
+## 🎯 Pourquoi utiliser Staple ?  
 
-![Straple Maquette](Assets/image.png)   
-
----
-
-## 🎯 Pourquoi utiliser Straple ?  
-
-📉 **Évitez l’abandon** : 50% des nouveaux pratiquants arrêtent par manque de résultats, **Straple vous garde motivé**.  
+📉 **Évitez l’abandon** : 50% des nouveaux pratiquants arrêtent par manque de résultats, **Staple vous garde motivé**.  
 🔍 **Précision et adaptation** : Grâce à une IA développée avec des professionnels de la santé.  
 🛠 **Un tout-en-un** : Plus besoin d’utiliser plusieurs applications pour le sport, la nutrition et le coaching.  
 
 ---
 
-## 🏆 Pour qui est Straple ?  
+## 🏆 Pour qui est Staple ?  
 
 - **Sportifs débutants** 🎽 : Pour structurer leur entraînement et améliorer leur nutrition.  
 - **Sportifs intermédiaires** 🏋️ : Pour optimiser leurs performances et progresser.  
@@ -53,4 +47,4 @@
 - 📧 **Naem Meddour** - naem.meddour@epitech.eu
 - 📧 **Rayan Bahri** - rayan.bahri@epitech.eu
 
-## 🚀 Prêt à booster votre progression avec Straple ? 🔥
+## 🚀 Prêt à booster votre progression avec Staple ? 🔥

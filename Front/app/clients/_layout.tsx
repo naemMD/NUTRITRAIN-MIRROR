@@ -49,10 +49,10 @@ export default function ClientLayout() {
   // 🔥 On récupère LE nom exact de la page actuelle (ex: "search-coach")
   const currentPage = segments[segments.length - 1];
 
-  // Pages où le header STRAPLE a juste une flèche retour
+  // Pages où le header STAPLE a juste une flèche retour
   const isSpecialPage = currentPage === "profile" || currentPage === "subscription";
 
-  // 🔥 Pages 100% custom : On CACHE complètement le header STRAPLE et le Footer
+  // 🔥 Pages 100% custom : On CACHE complètement le header STAPLE et le Footer
   const hideGlobalElements = 
     currentPage === "search-coach" || 
     currentPage === "map-search" || 
@@ -62,7 +62,7 @@ export default function ClientLayout() {
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={{ flex: 1, backgroundColor: "#0D1117" }}>
 
-        {/* --- HEADER STRAPLE (Caché sur la recherche et les profils) --- */}
+        {/* --- HEADER STAPLE (Caché sur la recherche et les profils) --- */}
         {!hideGlobalElements && (
           <View style={styles.header}>
             

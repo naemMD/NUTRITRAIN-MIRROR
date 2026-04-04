@@ -36,7 +36,7 @@ const Index = () => {
       <View style={styles.contentContainer}>
         <Text style={styles.welcomeText}>Welcome to your fitness journey</Text>
         <Text style={styles.descriptionText}>
-          Track your nutrition, follow personalized training plans, and reach your fitness goals with STRAPLE
+          Track your nutrition, follow personalized training plans, and reach your fitness goals with STAPLE
         </Text>
       </View>
       

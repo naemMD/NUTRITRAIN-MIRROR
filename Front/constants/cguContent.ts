@@ -45,13 +45,13 @@ By creating an account or using the App, you agree to be bound by these Terms. I
 All content, design, algorithms, and software associated with the App are the exclusive property of Staple. You are granted a limited, non-exclusive, non-transferable license to use the App for personal, non-commercial purposes.
 
 6. LIMITATION OF LIABILITY
-TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL STRAPLE, ITS FOUNDERS, COACHES, OR AFFILIATES BE LIABLE FOR ANY DIRECT, INDIRECT, PUNITIVE, INCIDENTAL, SPECIAL, OR CONSEQUENTIAL DAMAGES, INCLUDING BUT NOT LIMITED TO PHYSICAL INJURY, MEDICAL EXPENSES, OR LOSS OF DATA, ARISING OUT OF OR IN ANY WAY CONNECTED WITH THE USE OF THE APP OR THE AI-GENERATED CONTENT.
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL STAPLE, ITS FOUNDERS, COACHES, OR AFFILIATES BE LIABLE FOR ANY DIRECT, INDIRECT, PUNITIVE, INCIDENTAL, SPECIAL, OR CONSEQUENTIAL DAMAGES, INCLUDING BUT NOT LIMITED TO PHYSICAL INJURY, MEDICAL EXPENSES, OR LOSS OF DATA, ARISING OUT OF OR IN ANY WAY CONNECTED WITH THE USE OF THE APP OR THE AI-GENERATED CONTENT.
 
 7. GOVERNING LAW AND JURISDICTION
 These Terms shall be governed by and construed in accordance with the laws of The European Union, without regard to its conflict of law provisions. Any legal action or proceeding arising under these Terms will be brought exclusively in the courts located in Marseille, France.
 
 8. CONTACT US
-If you have any questions about these Terms, please contact us at strapleappeip@gmail.com.
+If you have any questions about these Terms, please contact us at stapleappeip@gmail.com.
 `;
 
 export const PRIVACY_POLICY_TEXT = `PRIVACY POLICY
@@ -123,5 +123,5 @@ Right to Withdraw Consent: You can withdraw your consent for health data process
 We implement strict technical and organizational measures to protect your data, including encryption in transit (SSL/TLS) and restricted access to our primary database.
 
 10. CONTACT US
-For any questions regarding this policy or to exercise your rights, please contact our Data Protection Officer at: strapleappeip@gmail.com
+For any questions regarding this policy or to exercise your rights, please contact our Data Protection Officer at: stapleappeip@gmail.com
 `;

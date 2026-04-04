@@ -44,7 +44,7 @@ def get_ai_client() -> AsyncOpenAI:
 # System prompt — defines the AI coach personality
 # ---------------------------------------------------------------------------
 
-SYSTEM_PROMPT = """You are StrapleCoach, an AI assistant specialized in nutrition and fitness, integrated into the Straple app.
+SYSTEM_PROMPT = """You are StapleCoach, an AI assistant specialized in nutrition and fitness, integrated into the Staple app.
 
 Your role:
 - Provide personalized nutrition and training advice

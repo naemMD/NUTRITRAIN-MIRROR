@@ -24,7 +24,7 @@ services:
     image: mysql:latest
     restart: always
     environment:
-      MYSQL_DATABASE: Straple
+      MYSQL_DATABASE: Staple
       MYSQL_ROOT_PASSWORD: root
     ports:
       - "3306:3306"
