@@ -1251,3 +1251,42 @@ async def delete_user_injury(
     injury.is_active = False
     await session.commit()
     return {"detail": "Injury removed"}
+
+
+# ---------------------------------------------------------------------------
+# RGPD — Data rights endpoints
+# ---------------------------------------------------------------------------
+
+@router.delete("/users/me/account")
+async def delete_my_account(
+    current_user_id: int = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_session),
+):
+    """RGPD Art. 17 — Right to Erasure. Permanently deletes the user and all associated data."""
+    return await delete_user_account(session, current_user_id)
+
+
+@router.get("/users/me/export")
+async def export_my_data(
+    current_user_id: int = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_session),
+):
+    """RGPD Art. 20 — Right to Data Portability. Returns all user data as JSON."""
+    return await export_user_data(session, current_user_id)
+
+
+@router.post("/users/me/withdraw-consent")
+async def withdraw_consent(
+    current_user_id: int = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_session),
+):
+    """RGPD Art. 7 — Right to Withdraw Consent. Clears consent timestamps and deletes the account."""
+    result = await session.execute(select(Users).where(Users.id == current_user_id))
+    user = result.scalars().first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.cgu_accepted_at = None
+    user.privacy_accepted_at = None
+    await session.commit()
+    # Withdrawing consent triggers account deletion
+    return await delete_user_account(session, current_user_id)

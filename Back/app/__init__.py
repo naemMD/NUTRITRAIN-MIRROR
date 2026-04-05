@@ -48,8 +48,15 @@ def create_app():
                 count = await auto_complete_daily_workouts(session)
                 print(f"[Scheduler] Auto-completed {count} workout(s) for today")
 
+        async def run_inactive_accounts_cleanup():
+            async with SessionLocal() as session:
+                count = await cleanup_inactive_accounts(session)
+                print(f"[Scheduler] RGPD: Deleted {count} inactive account(s) (18+ months)")
+
         scheduler.add_job(run_cleanup, CronTrigger(hour=0, minute=0))
         scheduler.add_job(run_auto_complete_workouts, CronTrigger(hour=23, minute=59))
+        # RGPD: check inactive accounts daily at 02:00
+        scheduler.add_job(run_inactive_accounts_cleanup, CronTrigger(hour=2, minute=0))
         scheduler.start()
 
     @app.on_event("shutdown")

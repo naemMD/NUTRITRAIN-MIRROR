@@ -232,6 +232,12 @@ class Users(Base):
     coach = relationship("Users", remote_side=[id], backref="clients")
     created_at = Column(DateTime, server_default=func.now())
 
+    # RGPD — Consent tracking
+    cgu_accepted_at = Column(DateTime, nullable=True)
+    privacy_accepted_at = Column(DateTime, nullable=True)
+    cgu_version = Column(String(20), nullable=True)
+    last_activity_at = Column(DateTime, server_default=func.now())
+
     @property
     def password(self):
         return self._password

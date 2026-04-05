@@ -83,6 +83,8 @@ async def register_user(session: AsyncSession, user_data: dict):
 
     role_str = str(user_data.get("role", "")).lower()
 
+    now = datetime.utcnow()
+
     new_user = Users(
         firstname=user_data["firstname"],
         lastname=user_data["lastname"],
@@ -100,7 +102,11 @@ async def register_user(session: AsyncSession, user_data: dict):
         latitude=user_data.get("latitude") if role_str == 'coach' else None,
         longitude=user_data.get("longitude") if role_str == 'coach' else None,
         goal=user_data.get("goal") if role_str == 'client' else None,
-        fitness_level=user_data.get("fitness_level") if role_str == 'client' else None
+        fitness_level=user_data.get("fitness_level") if role_str == 'client' else None,
+        cgu_accepted_at=now,
+        privacy_accepted_at=now,
+        cgu_version="1.0",
+        last_activity_at=now,
     )
 
     new_user.password = user_data["password"]
@@ -151,6 +157,10 @@ async def login_user(session: AsyncSession, user_data: dict):
 
     if not user.verify_password(user_data['password']):
         raise HTTPException(401, "Invalid password.")
+
+    # Update last activity for RGPD inactivity tracking
+    user.last_activity_at = datetime.utcnow()
+    await session.commit()
 
     token_payload = {
         "userId": str(user.id),
@@ -2147,3 +2157,207 @@ async def get_user_public_profile(session: AsyncSession, user_id: int):
         "nationality": user.nationality,
         "created_at": user.created_at.isoformat() if user.created_at else None,
     })
+
+
+# ---------------------------------------------------------------------------
+# RGPD — Account deletion (Right to Erasure)
+# ---------------------------------------------------------------------------
+
+async def delete_user_account(session: AsyncSession, user_id: int):
+    """Permanently delete a user and ALL their associated data (RGPD Art. 17)."""
+    result = await session.execute(select(Users).where(Users.id == user_id))
+    user = result.scalars().first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # 1. Delete AI chat messages
+    await session.execute(delete(AIChatMessage).where(AIChatMessage.user_id == user_id))
+
+    # 2. Delete injuries
+    await session.execute(delete(UserInjury).where(UserInjury.user_id == user_id))
+
+    # 3. Delete meals
+    await session.execute(delete(Meal).where(Meal.user_id == user_id))
+
+    # 4. Delete workout exercises (via workouts)
+    workout_ids_result = await session.execute(
+        select(Workout.id).where(Workout.user_id == user_id)
+    )
+    workout_ids = [row[0] for row in workout_ids_result.all()]
+    if workout_ids:
+        await session.execute(
+            delete(WorkoutExercise).where(WorkoutExercise.workout_id.in_(workout_ids))
+        )
+        await session.execute(delete(Workout).where(Workout.user_id == user_id))
+
+    # 5. Delete trainings
+    await session.execute(delete(Training).where(Training.user_id == user_id))
+
+    # 6. Delete messages (sent and received)
+    await session.execute(delete(Message).where(
+        or_(Message.sender_id == user_id, Message.receiver_id == user_id)
+    ))
+
+    # 7. Delete coach invitations
+    await session.execute(delete(CoachInvitation).where(
+        or_(CoachInvitation.coach_id == user_id, CoachInvitation.client_id == user_id)
+    ))
+
+    # 8. Delete client-coach requests
+    await session.execute(delete(ClientCoachRequest).where(
+        or_(ClientCoachRequest.client_id == user_id, ClientCoachRequest.coach_id == user_id)
+    ))
+
+    # 9. Delete forum favorites
+    await session.execute(delete(ForumFavorite).where(ForumFavorite.user_id == user_id))
+
+    # 10. Delete forum messages
+    await session.execute(delete(ForumMessage).where(ForumMessage.user_id == user_id))
+
+    # 11. Delete forums created by user
+    await session.execute(delete(Forum).where(Forum.user_id == user_id))
+
+    # 12. Unlink clients if user is a coach
+    if user.role == "coach":
+        await session.execute(
+            update(Users).where(Users.coach_id == user_id).values(coach_id=None)
+        )
+
+    # 13. Delete the user
+    await session.delete(user)
+    await session.commit()
+
+    return JSONResponse(status_code=200, content={"detail": "Account and all associated data permanently deleted"})
+
+
+# ---------------------------------------------------------------------------
+# RGPD — Data export (Right to Data Portability — Art. 20)
+# ---------------------------------------------------------------------------
+
+async def export_user_data(session: AsyncSession, user_id: int):
+    """Export all personal data for a user in a machine-readable format (JSON)."""
+    result = await session.execute(select(Users).where(Users.id == user_id))
+    user = result.scalars().first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Profile
+    profile = {
+        "id": user.id,
+        "email": user.email,
+        "firstname": user.firstname,
+        "lastname": user.lastname,
+        "age": user.age,
+        "gender": user.gender,
+        "role": user.role,
+        "city": user.city,
+        "latitude": user.latitude,
+        "longitude": user.longitude,
+        "weight": user.weight,
+        "height": user.height,
+        "goal": user.goal,
+        "fitness_level": user.fitness_level,
+        "description": user.description,
+        "nationality": user.nationality,
+        "language": user.language,
+        "daily_caloric_needs": user.daily_caloric_needs,
+        "goal_proteins": user.goal_proteins,
+        "goal_carbs": user.goal_carbs,
+        "goal_fats": user.goal_fats,
+        "created_at": user.created_at.isoformat() if user.created_at else None,
+        "cgu_accepted_at": user.cgu_accepted_at.isoformat() if user.cgu_accepted_at else None,
+        "privacy_accepted_at": user.privacy_accepted_at.isoformat() if user.privacy_accepted_at else None,
+        "cgu_version": user.cgu_version,
+        "last_activity_at": user.last_activity_at.isoformat() if user.last_activity_at else None,
+    }
+
+    # Meals
+    meals_result = await session.execute(select(Meal).where(Meal.user_id == user_id))
+    meals = [{
+        "id": m.id, "name": m.name, "total_calories": m.total_calories,
+        "total_proteins": m.total_proteins, "total_carbohydrates": m.total_carbohydrates,
+        "total_lipids": m.total_lipids, "meal_type": m.meal_type,
+        "hourtime": m.hourtime.isoformat() if m.hourtime else None,
+        "is_consumed": m.is_consumed,
+        "created_at": m.created_at.isoformat() if m.created_at else None,
+    } for m in meals_result.scalars().all()]
+
+    # Workouts
+    workouts_result = await session.execute(
+        select(Workout).options(selectinload(Workout.exercises)).where(Workout.user_id == user_id)
+    )
+    workouts = []
+    for w in workouts_result.scalars().all():
+        workouts.append({
+            "id": w.id, "name": w.name, "description": w.description,
+            "difficulty": w.difficulty,
+            "scheduled_date": w.scheduled_date.isoformat() if w.scheduled_date else None,
+            "is_completed": w.is_completed, "is_ai_generated": w.is_ai_generated,
+            "exercises": [{
+                "name": e.name, "muscle": e.muscle, "num_sets": e.num_sets,
+                "rest_time": e.rest_time, "sets_details": e.sets_details,
+            } for e in w.exercises],
+        })
+
+    # Injuries
+    injuries_result = await session.execute(select(UserInjury).where(UserInjury.user_id == user_id))
+    injuries = [{
+        "body_zone": i.body_zone, "description": i.description,
+        "is_active": i.is_active,
+        "created_at": i.created_at.isoformat() if i.created_at else None,
+    } for i in injuries_result.scalars().all()]
+
+    # AI chat history
+    chat_result = await session.execute(select(AIChatMessage).where(AIChatMessage.user_id == user_id))
+    chat_messages = [{
+        "role": c.role, "content": c.content,
+        "created_at": c.created_at.isoformat() if c.created_at else None,
+    } for c in chat_result.scalars().all()]
+
+    # Forum posts
+    forum_msgs_result = await session.execute(select(ForumMessage).where(ForumMessage.user_id == user_id))
+    forum_posts = [{
+        "forum_id": fm.forum_id, "content": fm.content,
+        "created_at": fm.created_at.isoformat() if fm.created_at else None,
+    } for fm in forum_msgs_result.scalars().all()]
+
+    # Messages (DMs)
+    dm_result = await session.execute(select(Message).where(
+        or_(Message.sender_id == user_id, Message.receiver_id == user_id)
+    ))
+    direct_messages = [{
+        "sender_id": dm.sender_id, "receiver_id": dm.receiver_id,
+        "content": dm.content,
+        "timestamp": dm.timestamp.isoformat() if dm.timestamp else None,
+        "is_read": dm.is_read,
+    } for dm in dm_result.scalars().all()]
+
+    return JSONResponse(status_code=200, content={
+        "export_date": datetime.utcnow().isoformat(),
+        "format_version": "1.0",
+        "profile": profile,
+        "meals": meals,
+        "workouts": workouts,
+        "injuries": injuries,
+        "ai_chat_history": chat_messages,
+        "forum_posts": forum_posts,
+        "direct_messages": direct_messages,
+    })
+
+
+# ---------------------------------------------------------------------------
+# RGPD — Auto-delete inactive accounts (18 months)
+# ---------------------------------------------------------------------------
+
+async def cleanup_inactive_accounts(session: AsyncSession) -> int:
+    """Delete accounts inactive for more than 18 months (RGPD data retention)."""
+    cutoff = datetime.utcnow() - timedelta(days=548)  # ~18 months
+    result = await session.execute(
+        select(Users).where(Users.last_activity_at < cutoff)
+    )
+    inactive_users = result.scalars().all()
+    count = 0
+    for user in inactive_users:
+        await delete_user_account(session, user.id)
+        count += 1
+    return count

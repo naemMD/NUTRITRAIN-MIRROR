@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Switch, Platform } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Switch, Platform, ActivityIndicator } from 'react-native';
 import { crossAlert } from '@/services/crossAlert';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { clearSession } from '@/services/authStorage';
 import CGUModal from '@/components/CGUModal';
 import { useInstallPrompt } from '@/hooks/useInstallPrompt';
+import api from '@/services/api';
 
 const SettingsPage = () => {
   const router = useRouter();
@@ -29,6 +30,67 @@ const SettingsPage = () => {
           router.replace('/(tabs)/login');
       }}
     ]);
+  };
+
+  const [exporting, setExporting] = useState(false);
+
+  const handleExportData = async () => {
+    setExporting(true);
+    try {
+      const res = await api.get('/users/me/export');
+      const jsonStr = JSON.stringify(res.data, null, 2);
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'staple-my-data.json';
+        a.click();
+        URL.revokeObjectURL(url);
+      } else {
+        crossAlert('Data Export', 'Your data has been prepared. On mobile, data export is available via the web version.', [{ text: 'OK' }]);
+      }
+    } catch (err) {
+      crossAlert('Error', 'Failed to export your data. Please try again.', [{ text: 'OK' }]);
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleDeleteAccount = () => {
+    crossAlert(
+      "Delete Account",
+      "This will permanently delete your account and ALL your data (meals, workouts, messages, etc.). This action is irreversible.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete Permanently",
+          style: "destructive",
+          onPress: () => {
+            crossAlert(
+              "Are you absolutely sure?",
+              "All your personal data will be erased. This cannot be undone.",
+              [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Yes, delete everything",
+                  style: "destructive",
+                  onPress: async () => {
+                    try {
+                      await api.delete('/users/me/account');
+                      await clearSession();
+                      router.replace('/(tabs)');
+                    } catch (err) {
+                      crossAlert('Error', 'Failed to delete account. Please try again.', [{ text: 'OK' }]);
+                    }
+                  }
+                }
+              ]
+            );
+          }
+        }
+      ]
+    );
   };
 
   const toggleNotif = (key: keyof typeof notifications) => {
@@ -169,6 +231,22 @@ const SettingsPage = () => {
           </>
         )}
 
+        <Text style={styles.sectionLabel}>MY DATA (RGPD)</Text>
+        <View style={styles.sectionCard}>
+          <SettingRow
+            icon="download-outline"
+            title={exporting ? "Exporting..." : "Export My Data"}
+            color="#3498DB"
+            onPress={handleExportData}
+          />
+          <SettingRow
+            icon="document-text-outline"
+            title="Consent Info"
+            onPress={() => setShowPrivacy(true)}
+            isLast
+          />
+        </View>
+
         <Text style={styles.sectionLabel}>DANGER ZONE</Text>
         <View style={styles.sectionCard}>
           <SettingRow
@@ -176,6 +254,12 @@ const SettingsPage = () => {
             title="Log Out"
             color="#e74c3c"
             onPress={handleLogout}
+          />
+          <SettingRow
+            icon="trash-outline"
+            title="Delete My Account"
+            color="#e74c3c"
+            onPress={handleDeleteAccount}
             isLast
           />
         </View>
