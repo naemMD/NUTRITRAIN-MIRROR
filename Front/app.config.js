@@ -41,7 +41,8 @@ export default {
     ],
 
     experiments: {
-      typedRoutes: true
+      typedRoutes: true,
+      baseUrl: "/app"
     },
 
     extra: {
