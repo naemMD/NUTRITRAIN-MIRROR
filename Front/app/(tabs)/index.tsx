@@ -16,15 +16,12 @@ const Index = () => {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // Not mobile-sized? Don't show
-    if (window.innerWidth >= 1024) return;
-
     // Already in PWA / standalone mode? Don't show
     const standalone = (window.navigator as any).standalone === true ||
       window.matchMedia('(display-mode: standalone)').matches;
     if (standalone) return;
 
-    // Show the custom install banner on all mobile web
+    // Show the custom install banner on all web (mobile + tablet)
     setShowInstallBanner(true);
 
     // If the native install prompt fires (Chrome Android), hide our banner
@@ -62,32 +59,6 @@ const Index = () => {
         </Text>
       </View>
 
-      {showInstallBanner && !installDismissed && (
-        <View style={styles.installCard}>
-          <View style={styles.installHeader}>
-            <Ionicons name="share-outline" size={22} color="#3498DB" />
-            <Text style={styles.installTitle}>Install Staple App</Text>
-            <TouchableOpacity onPress={() => setInstallDismissed(true)}>
-              <Ionicons name="close" size={18} color="#8A8D91" />
-            </TouchableOpacity>
-          </View>
-          <View style={styles.installSteps}>
-            <Text style={styles.installStep}>
-              1. Open this page in <Text style={{ fontWeight: 'bold', color: '#3498DB' }}>Safari</Text>
-            </Text>
-            <Text style={styles.installStep}>
-              2. Tap <Ionicons name="share-outline" size={14} color="#3498DB" /> at the bottom of the screen
-            </Text>
-            <Text style={styles.installStep}>
-              3. Scroll down and tap <Text style={{ fontWeight: 'bold' }}>"Add to Home Screen"</Text>
-            </Text>
-            <Text style={styles.installStep}>
-              4. Tap <Text style={{ fontWeight: 'bold' }}>"Add"</Text> to confirm
-            </Text>
-          </View>
-        </View>
-      )}
-
       <View style={styles.buttonContainer}>
         <Link href="/login" asChild>
           <Pressable style={styles.loginButton}>
@@ -103,6 +74,23 @@ const Index = () => {
       </View>
 
       <Text style={styles.footerText}>Your personal fitness & nutrition app</Text>
+
+      {showInstallBanner && !installDismissed && (
+        <View style={styles.installBanner}>
+          <View style={styles.installBannerContent}>
+            <Ionicons name="share-outline" size={20} color="#3498DB" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.installBannerTitle}>Install Staple App</Text>
+              <Text style={styles.installBannerText}>
+                Tap <Ionicons name="share-outline" size={12} color="#3498DB" /> then "Add to Home Screen"
+              </Text>
+            </View>
+            <TouchableOpacity onPress={() => setInstallDismissed(true)} hitSlop={8}>
+              <Ionicons name="close-circle" size={22} color="#8A8D91" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </View>
   );
 };
@@ -137,38 +125,32 @@ const styles = StyleSheet.create({
     marginBottom: 40,
     lineHeight: 24,
   },
-  installCard: {
-    backgroundColor: '#2A4562',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(52, 152, 219, 0.25)',
+  installBanner: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#1E2C3D',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(52, 152, 219, 0.3)',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    paddingBottom: 28,
   },
-  installHeader: {
+  installBannerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginBottom: 8,
+    gap: 12,
   },
-  installTitle: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '700',
-    flex: 1,
-  },
-  installHint: {
-    color: '#8A8D91',
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  installSteps: {
-    marginTop: 4,
-  },
-  installStep: {
+  installBannerTitle: {
     color: '#FFFFFF',
-    fontSize: 13,
-    lineHeight: 22,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  installBannerText: {
+    color: '#8A8D91',
+    fontSize: 12,
+    marginTop: 2,
   },
   buttonContainer: {
     width: '100%',
