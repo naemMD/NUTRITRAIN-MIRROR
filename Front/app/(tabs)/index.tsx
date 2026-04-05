@@ -10,21 +10,27 @@ import { getToken, getUserDetails } from '@/services/authStorage';
 const Index = () => {
   const insets = useSafeAreaInsets();
   const navigation = useRouter();
-  const [isIOSSafari, setIsIOSSafari] = useState(false);
-  const [isStandalone, setIsStandalone] = useState(false);
+  const [showInstallBanner, setShowInstallBanner] = useState(false);
   const [installDismissed, setInstallDismissed] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && typeof navigator !== 'undefined') {
-      const ua = navigator.userAgent;
-      const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-      const isSafari = /Safari/.test(ua) && !/CriOS|FxiOS|OPiOS|EdgiOS|Chrome/.test(ua);
-      const standalone = (window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches;
-      setIsStandalone(standalone);
-      if (isIOS && isSafari && !standalone) {
-        setIsIOSSafari(true);
-      }
-    }
+    if (typeof window === 'undefined') return;
+
+    // Not mobile-sized? Don't show
+    if (window.innerWidth >= 1024) return;
+
+    // Already in PWA / standalone mode? Don't show
+    const standalone = (window.navigator as any).standalone === true ||
+      window.matchMedia('(display-mode: standalone)').matches;
+    if (standalone) return;
+
+    // Show the custom install banner on all mobile web
+    setShowInstallBanner(true);
+
+    // If the native install prompt fires (Chrome Android), hide our banner
+    const hide = () => setShowInstallBanner(false);
+    window.addEventListener('beforeinstallprompt', hide);
+    return () => window.removeEventListener('beforeinstallprompt', hide);
   }, []);
 
   useEffect(() => {
@@ -56,7 +62,7 @@ const Index = () => {
         </Text>
       </View>
 
-      {isIOSSafari && !isStandalone && !installDismissed && (
+      {showInstallBanner && !installDismissed && (
         <View style={styles.installCard}>
           <View style={styles.installHeader}>
             <Ionicons name="share-outline" size={22} color="#3498DB" />
@@ -65,18 +71,18 @@ const Index = () => {
               <Ionicons name="close" size={18} color="#8A8D91" />
             </TouchableOpacity>
           </View>
-          <Text style={styles.installHint}>
-            Tap the{' '}
-          </Text>
           <View style={styles.installSteps}>
             <Text style={styles.installStep}>
-              1. Tap <Ionicons name="share-outline" size={14} color="#3498DB" /> at the bottom of Safari
+              1. Open this page in <Text style={{ fontWeight: 'bold', color: '#3498DB' }}>Safari</Text>
             </Text>
             <Text style={styles.installStep}>
-              2. Scroll down and tap "Add to Home Screen"
+              2. Tap <Ionicons name="share-outline" size={14} color="#3498DB" /> at the bottom of the screen
             </Text>
             <Text style={styles.installStep}>
-              3. Tap "Add" to confirm
+              3. Scroll down and tap <Text style={{ fontWeight: 'bold' }}>"Add to Home Screen"</Text>
+            </Text>
+            <Text style={styles.installStep}>
+              4. Tap <Text style={{ fontWeight: 'bold' }}>"Add"</Text> to confirm
             </Text>
           </View>
         </View>
