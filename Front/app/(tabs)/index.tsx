@@ -47,6 +47,23 @@ const Index = () => {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      {showInstallBanner && !installDismissed && (
+        <View style={styles.installBanner}>
+          <View style={styles.installBannerContent}>
+            <Ionicons name="download-outline" size={20} color="#3498DB" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.installBannerTitle}>Install Staple App</Text>
+              <Text style={styles.installBannerText}>
+                Tap <Ionicons name="share-outline" size={12} color="#3498DB" /> then "Add to Home Screen"
+              </Text>
+            </View>
+            <TouchableOpacity onPress={() => setInstallDismissed(true)} hitSlop={8}>
+              <Ionicons name="close-circle" size={22} color="#8A8D91" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
       <View style={styles.logoContainer}>
         <StapleLogo fontSize={36} />
         <Text style={{ color: '#888', fontSize: 9, letterSpacing: 2, marginTop: 4 }}>TRAIN SMART, LIVE STRONG</Text>
@@ -75,22 +92,6 @@ const Index = () => {
 
       <Text style={styles.footerText}>Your personal fitness & nutrition app</Text>
 
-      {showInstallBanner && !installDismissed && (
-        <View style={styles.installBanner}>
-          <View style={styles.installBannerContent}>
-            <Ionicons name="share-outline" size={20} color="#3498DB" />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.installBannerTitle}>Install Staple App</Text>
-              <Text style={styles.installBannerText}>
-                Tap <Ionicons name="share-outline" size={12} color="#3498DB" /> then "Add to Home Screen"
-              </Text>
-            </View>
-            <TouchableOpacity onPress={() => setInstallDismissed(true)} hitSlop={8}>
-              <Ionicons name="close-circle" size={22} color="#8A8D91" />
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
     </View>
   );
 };
@@ -126,16 +127,12 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   installBanner: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     backgroundColor: '#1E2C3D',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(52, 152, 219, 0.3)',
+    marginHorizontal: -20,
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    paddingBottom: 28,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(52, 152, 219, 0.3)',
   },
   installBannerContent: {
     flexDirection: 'row',
