@@ -606,6 +606,32 @@ class SaveGeneratedProgramRequest(BaseModel):
     workouts: List[GeneratedWorkout]
 
 
+# ---------------------------------------------------------------------------
+# Newsletter
+# ---------------------------------------------------------------------------
+
+class NewsletterSubscriber(Base):
+    __tablename__ = "newsletter_subscribers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String(100), unique=True, nullable=False)
+    firstname = Column(String(50), nullable=True)
+    is_active = Column(Boolean, default=True)
+    unsubscribe_token = Column(String(64), unique=True, nullable=False)
+    subscribed_at = Column(DateTime(timezone=True), server_default=func.now())
+    unsubscribed_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class NewsletterSubscribeRequest(BaseModel):
+    email: EmailStr
+    firstname: Optional[str] = None
+
+
+class NewsletterSendRequest(BaseModel):
+    subject: str
+    html_content: str
+
+
 __all__ = [
     "LocationUpdate",
     "CoachSearchResponse",
@@ -660,4 +686,7 @@ __all__ = [
     "GeneratedWorkout",
     "GeneratedWorkoutExercise",
     "SaveGeneratedProgramRequest",
+    "NewsletterSubscriber",
+    "NewsletterSubscribeRequest",
+    "NewsletterSendRequest",
 ]

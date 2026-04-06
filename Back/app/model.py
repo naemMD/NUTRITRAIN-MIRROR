@@ -8,7 +8,7 @@ from fastapi import HTTPException, status
 from fastapi.responses import JSONResponse
 from app.middleware import create_access_token
 from datetime import datetime, date, timedelta
-import secrets, json, math
+import secrets, json, math, os
 
 
 # ---------------------------------------------------------------------------
@@ -65,29 +65,7 @@ async def get_user_by_id(session: AsyncSession, user_id):
     )
 
 
-def _load_whitelist():
-    """Load authorized emails from whitelist.txt (next to app/ folder)."""
-    import pathlib
-    wl_path = pathlib.Path(__file__).resolve().parent.parent / "whitelist.txt"
-    if not wl_path.exists():
-        return None  # No whitelist file = no restriction
-    emails = set()
-    for line in wl_path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if line and not line.startswith("#"):
-            emails.add(line.lower())
-    return emails
-
-
 async def register_user(session: AsyncSession, user_data: dict):
-    # Beta whitelist check
-    allowed = _load_whitelist()
-    if allowed is not None and user_data.get("email", "").lower() not in allowed:
-        raise HTTPException(
-            status_code=403,
-            detail="Registration is restricted to authorized beta testers only. Please contact us to request access."
-        )
-
     try:
         user_data['age'] = int(user_data['age'])
     except ValueError:
@@ -2383,3 +2361,113 @@ async def cleanup_inactive_accounts(session: AsyncSession) -> int:
         await delete_user_account(session, user.id)
         count += 1
     return count
+
+
+# ---------------------------------------------------------------------------
+# Newsletter
+# ---------------------------------------------------------------------------
+
+async def subscribe_newsletter(session: AsyncSession, email: str, firstname: str = None):
+    """Subscribe an email to the newsletter."""
+    result = await session.execute(
+        select(NewsletterSubscriber).where(NewsletterSubscriber.email == email.lower())
+    )
+    existing = result.scalars().first()
+
+    if existing:
+        if existing.is_active:
+            return JSONResponse(status_code=200, content={"detail": "Already subscribed"})
+        # Re-subscribe
+        existing.is_active = True
+        existing.unsubscribed_at = None
+        existing.firstname = firstname or existing.firstname
+        await session.commit()
+        return JSONResponse(status_code=200, content={"detail": "Re-subscribed successfully"})
+
+    token = secrets.token_urlsafe(48)
+    subscriber = NewsletterSubscriber(
+        email=email.lower(),
+        firstname=firstname,
+        unsubscribe_token=token,
+    )
+    session.add(subscriber)
+    await session.commit()
+    return JSONResponse(status_code=201, content={"detail": "Subscribed successfully"})
+
+
+async def unsubscribe_newsletter(session: AsyncSession, token: str):
+    """Unsubscribe via unique token (RGPD-compliant one-click unsubscribe)."""
+    result = await session.execute(
+        select(NewsletterSubscriber).where(NewsletterSubscriber.unsubscribe_token == token)
+    )
+    subscriber = result.scalars().first()
+    if not subscriber:
+        raise HTTPException(status_code=404, detail="Invalid unsubscribe link")
+
+    subscriber.is_active = False
+    subscriber.unsubscribed_at = datetime.utcnow()
+    await session.commit()
+    return JSONResponse(status_code=200, content={"detail": "Unsubscribed successfully"})
+
+
+async def send_newsletter(session: AsyncSession, subject: str, html_content: str):
+    """Send a newsletter to all active subscribers via Brevo API."""
+    import httpx
+
+    brevo_key = os.getenv("BREVO_API_KEY")
+    if not brevo_key:
+        raise HTTPException(status_code=500, detail="BREVO_API_KEY not configured")
+
+    sender_email = os.getenv("BREVO_SENDER_EMAIL", "newsletter@stapleapp.fr")
+    sender_name = os.getenv("BREVO_SENDER_NAME", "Staple")
+
+    result = await session.execute(
+        select(NewsletterSubscriber).where(NewsletterSubscriber.is_active == True)
+    )
+    subscribers = result.scalars().all()
+
+    if not subscribers:
+        return JSONResponse(status_code=200, content={"detail": "No active subscribers", "sent": 0})
+
+    sent = 0
+    errors = []
+
+    async with httpx.AsyncClient() as client:
+        for sub in subscribers:
+            # Inject unsubscribe link into email
+            unsub_url = f"https://stapleapp.fr/app/unsubscribe?token={sub.unsubscribe_token}"
+            body_with_unsub = html_content + (
+                f'<br><hr style="margin-top:30px">'
+                f'<p style="font-size:12px;color:#888;text-align:center">'
+                f'You are receiving this email because you subscribed to Staple newsletter.<br>'
+                f'<a href="{unsub_url}">Unsubscribe</a></p>'
+            )
+
+            payload = {
+                "sender": {"name": sender_name, "email": sender_email},
+                "to": [{"email": sub.email, "name": sub.firstname or ""}],
+                "subject": subject,
+                "htmlContent": body_with_unsub,
+            }
+
+            try:
+                resp = await client.post(
+                    "https://api.brevo.com/v3/smtp/email",
+                    json=payload,
+                    headers={
+                        "api-key": brevo_key,
+                        "Content-Type": "application/json",
+                    },
+                )
+                if resp.status_code in (200, 201):
+                    sent += 1
+                else:
+                    errors.append({"email": sub.email, "status": resp.status_code, "body": resp.text})
+            except Exception as e:
+                errors.append({"email": sub.email, "error": str(e)})
+
+    return JSONResponse(status_code=200, content={
+        "detail": f"Newsletter sent to {sent}/{len(subscribers)} subscribers",
+        "sent": sent,
+        "errors": errors if errors else None,
+    })

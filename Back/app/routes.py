@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.model import *
 from app.database import get_session
 from app.api import *
-from app.schemas import WorkoutCreate, WorkoutRead, WorkoutExerciseCreate, MealRead, MealCreateByCoach, UserGoalUpdate, MacroUpdate, ForumCreate, ForumUpdate, ForumMessageCreate, AIChatRequest, AIChatResponse, AIChatMessageRead, AIChatMessage, AI_DAILY_MESSAGE_LIMIT, AI_WEEKLY_WORKOUT_LIMIT, AI_DAILY_WORKOUT_LIMIT, UserInjury, UserInjuryRead, InjuryProposal, InjuryConfirmRequest, GenerateProgramRequest, SaveGeneratedProgramRequest, Users, Workout, WorkoutExercise
+from app.schemas import WorkoutCreate, WorkoutRead, WorkoutExerciseCreate, MealRead, MealCreateByCoach, UserGoalUpdate, MacroUpdate, ForumCreate, ForumUpdate, ForumMessageCreate, AIChatRequest, AIChatResponse, AIChatMessageRead, AIChatMessage, AI_DAILY_MESSAGE_LIMIT, AI_WEEKLY_WORKOUT_LIMIT, AI_DAILY_WORKOUT_LIMIT, UserInjury, UserInjuryRead, InjuryProposal, InjuryConfirmRequest, GenerateProgramRequest, SaveGeneratedProgramRequest, Users, Workout, WorkoutExercise, NewsletterSubscribeRequest, NewsletterSendRequest
 from typing import List, Any, Optional
 from jose import JWTError, jwt
 from dotenv import load_dotenv
@@ -1290,3 +1290,63 @@ async def withdraw_consent(
     await session.commit()
     # Withdrawing consent triggers account deletion
     return await delete_user_account(session, current_user_id)
+
+
+# ---------------------------------------------------------------------------
+# Newsletter
+# ---------------------------------------------------------------------------
+
+@router.post("/newsletter/subscribe")
+async def newsletter_subscribe_route(
+    data: NewsletterSubscribeRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    """Subscribe an email to the newsletter (public, no auth required)."""
+    return await subscribe_newsletter(session, data.email, data.firstname)
+
+
+@router.get("/newsletter/unsubscribe")
+async def newsletter_unsubscribe_route(
+    token: str,
+    session: AsyncSession = Depends(get_session),
+):
+    """One-click unsubscribe via unique token (RGPD-compliant)."""
+    return await unsubscribe_newsletter(session, token)
+
+
+@router.post("/newsletter/send")
+async def newsletter_send_route(
+    data: NewsletterSendRequest,
+    current_user_id: int = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_session),
+):
+    """Send a newsletter to all active subscribers (admin only)."""
+    # Check that the sender is an admin
+    user = await session.get(Users, current_user_id)
+    if not user or user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can send newsletters")
+    return await send_newsletter(session, data.subject, data.html_content)
+
+
+@router.get("/newsletter/subscribers")
+async def newsletter_list_route(
+    current_user_id: int = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_session),
+):
+    """List all newsletter subscribers (admin only)."""
+    user = await session.get(Users, current_user_id)
+    if not user or user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can view subscribers")
+    from app.schemas import NewsletterSubscriber
+    result = await session.execute(
+        select(NewsletterSubscriber).order_by(desc(NewsletterSubscriber.subscribed_at))
+    )
+    subs = result.scalars().all()
+    return [{
+        "id": s.id,
+        "email": s.email,
+        "firstname": s.firstname,
+        "is_active": s.is_active,
+        "subscribed_at": s.subscribed_at.isoformat() if s.subscribed_at else None,
+        "unsubscribed_at": s.unsubscribed_at.isoformat() if s.unsubscribed_at else None,
+    } for s in subs]
