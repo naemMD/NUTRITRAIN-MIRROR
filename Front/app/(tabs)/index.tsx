@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Pressable } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Pressable, Platform } from 'react-native';
 import StapleLogo from '@/components/StapleLogo';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,7 +14,7 @@ const Index = () => {
   const [installDismissed, setInstallDismissed] = useState(false);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (Platform.OS !== 'web') return;
 
     // Already in PWA / standalone mode? Don't show
     const standalone = (window.navigator as any).standalone === true ||
@@ -46,7 +46,7 @@ const Index = () => {
   }, []);
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 20) }]}>
       {showInstallBanner && !installDismissed && (
         <View style={styles.installBanner}>
           <View style={styles.installBannerContent}>

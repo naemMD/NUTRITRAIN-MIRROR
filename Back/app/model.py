@@ -8,7 +8,7 @@ from fastapi import HTTPException, status
 from fastapi.responses import JSONResponse
 from app.middleware import create_access_token
 from datetime import datetime, date, timedelta
-import secrets, json, math, os
+import secrets, json, math, os, random
 
 
 # ---------------------------------------------------------------------------
@@ -115,6 +115,10 @@ async def register_user(session: AsyncSession, user_data: dict):
         await session.commit()
         await session.refresh(new_user)
 
+        # TEMPORARY SEED DATA — DELETE THESE 2 LINES WHEN DONE TESTING
+        if new_user.role == "client":
+            await seed_demo_workouts(session, new_user.id)
+
         token_payload = {
             "userId": str(new_user.id),
             "email": new_user.email,
@@ -142,6 +146,69 @@ async def register_user(session: AsyncSession, user_data: dict):
         await session.rollback()
         print(f"Erreur inattendue DB: {e}")
         raise HTTPException(status_code=500, detail="Une erreur est survenue lors de la création du compte. Veuillez réessayer.")
+
+
+# ============================================================
+# TEMPORARY SEED DATA — DELETE THIS FUNCTION WHEN DONE TESTING
+# ============================================================
+async def seed_demo_workouts(session: AsyncSession, user_id: int):
+    """Generate 30 days of completed workouts for stats testing."""
+    today = datetime.utcnow().replace(hour=10, minute=0, second=0, microsecond=0)
+    demo_plans = [
+        ("Push Day", "Intermediate", [
+            {"name": "Bench Press", "muscle": "chest", "num_sets": 4, "sets_details": [{"set_number": 1, "reps": 10, "weight": 60}, {"set_number": 2, "reps": 10, "weight": 60}, {"set_number": 3, "reps": 8, "weight": 65}, {"set_number": 4, "reps": 8, "weight": 65}]},
+            {"name": "Overhead Press", "muscle": "shoulders", "num_sets": 3, "sets_details": [{"set_number": 1, "reps": 10, "weight": 30}, {"set_number": 2, "reps": 10, "weight": 30}, {"set_number": 3, "reps": 8, "weight": 35}]},
+            {"name": "Tricep Dips", "muscle": "triceps", "num_sets": 3, "sets_details": [{"set_number": 1, "reps": 12, "weight": 0}, {"set_number": 2, "reps": 12, "weight": 0}, {"set_number": 3, "reps": 10, "weight": 0}]},
+        ]),
+        ("Pull Day", "Intermediate", [
+            {"name": "Deadlift", "muscle": "back", "num_sets": 4, "sets_details": [{"set_number": 1, "reps": 8, "weight": 80}, {"set_number": 2, "reps": 8, "weight": 80}, {"set_number": 3, "reps": 6, "weight": 90}, {"set_number": 4, "reps": 6, "weight": 90}]},
+            {"name": "Barbell Row", "muscle": "back", "num_sets": 3, "sets_details": [{"set_number": 1, "reps": 10, "weight": 50}, {"set_number": 2, "reps": 10, "weight": 50}, {"set_number": 3, "reps": 8, "weight": 55}]},
+            {"name": "Bicep Curl", "muscle": "biceps", "num_sets": 3, "sets_details": [{"set_number": 1, "reps": 12, "weight": 14}, {"set_number": 2, "reps": 12, "weight": 14}, {"set_number": 3, "reps": 10, "weight": 16}]},
+        ]),
+        ("Leg Day", "Intermediate", [
+            {"name": "Squat", "muscle": "quadriceps", "num_sets": 4, "sets_details": [{"set_number": 1, "reps": 10, "weight": 70}, {"set_number": 2, "reps": 10, "weight": 70}, {"set_number": 3, "reps": 8, "weight": 80}, {"set_number": 4, "reps": 8, "weight": 80}]},
+            {"name": "Leg Press", "muscle": "quadriceps", "num_sets": 3, "sets_details": [{"set_number": 1, "reps": 12, "weight": 100}, {"set_number": 2, "reps": 12, "weight": 100}, {"set_number": 3, "reps": 10, "weight": 120}]},
+            {"name": "Calf Raise", "muscle": "calves", "num_sets": 3, "sets_details": [{"set_number": 1, "reps": 15, "weight": 40}, {"set_number": 2, "reps": 15, "weight": 40}, {"set_number": 3, "reps": 15, "weight": 40}]},
+        ]),
+    ]
+
+    for day_offset in range(30, 0, -1):
+        workout_date = today - timedelta(days=day_offset)
+        plan_name, difficulty, exercises = demo_plans[day_offset % len(demo_plans)]
+
+        workout = Workout(
+            user_id=user_id,
+            name=plan_name,
+            difficulty=difficulty,
+            scheduled_date=workout_date,
+            is_completed=True,
+        )
+        session.add(workout)
+        await session.flush()
+
+        for exo in exercises:
+            session.add(WorkoutExercise(
+                workout_id=workout.id,
+                name=exo["name"],
+                muscle=exo["muscle"],
+                num_sets=exo["num_sets"],
+                rest_time=60,
+                sets_details=exo["sets_details"],
+            ))
+
+        session.add(WorkoutRating(
+            workout_id=workout.id,
+            user_id=user_id,
+            overall_rating=random.randint(2, 5),
+            perceived_difficulty=random.choice(["too_easy", "just_right", "just_right", "hard", "too_hard"]),
+            energy_level=random.choice(["fresh", "fresh", "normal", "normal", "tired", "exhausted"]),
+            feedback_text=None,
+        ))
+
+    await session.commit()
+# ============================================================
+# END TEMPORARY SEED DATA
+# ============================================================
 
 
 async def login_user(session: AsyncSession, user_data: dict):
@@ -545,7 +612,7 @@ async def get_user_workouts(session: AsyncSession, user_id: int):
     try:
         stmt = select(Workout)\
             .where(Workout.user_id == user_id)\
-            .options(selectinload(Workout.exercises))\
+            .options(selectinload(Workout.exercises), selectinload(Workout.rating))\
             .order_by(Workout.scheduled_date.asc())
 
         result = await session.execute(stmt)
@@ -651,6 +718,42 @@ async def toggle_workout_complete(session: AsyncSession, workout_id: int, user_i
     await session.refresh(workout)
 
     return workout
+
+
+async def update_workout_rating(session: AsyncSession, workout_id: int, user_id: int, rating_data: dict):
+    result = await session.execute(
+        select(Workout).where(Workout.id == workout_id, Workout.user_id == user_id)
+    )
+    workout = result.scalars().first()
+    if not workout:
+        raise HTTPException(status_code=404, detail="Workout not found")
+    if not workout.is_completed:
+        raise HTTPException(status_code=400, detail="Workout is not completed")
+
+    result = await session.execute(
+        select(WorkoutRating).where(WorkoutRating.workout_id == workout_id)
+    )
+    rating = result.scalars().first()
+
+    if rating:
+        rating.overall_rating = rating_data["overall_rating"]
+        rating.perceived_difficulty = rating_data["perceived_difficulty"]
+        rating.energy_level = rating_data["energy_level"]
+        rating.feedback_text = rating_data.get("feedback_text")
+    else:
+        rating = WorkoutRating(
+            workout_id=workout_id,
+            user_id=user_id,
+            overall_rating=rating_data["overall_rating"],
+            perceived_difficulty=rating_data["perceived_difficulty"],
+            energy_level=rating_data["energy_level"],
+            feedback_text=rating_data.get("feedback_text"),
+        )
+        session.add(rating)
+
+    await session.commit()
+    await session.refresh(rating)
+    return rating
 
 
 async def auto_complete_daily_workouts(session: AsyncSession):
@@ -1211,7 +1314,7 @@ async def get_client_statistics(session: AsyncSession, client_id: int, days: int
             func.date(Workout.scheduled_date) >= start_date,
             func.date(Workout.scheduled_date) <= end_date,
         )
-        .options(selectinload(Workout.rating))
+        .options(selectinload(Workout.rating), selectinload(Workout.exercises))
     )
     workouts = wo_result.scalars().all()
 
@@ -1233,6 +1336,34 @@ async def get_client_statistics(session: AsyncSession, client_id: int, days: int
         if e in energy_dist:
             energy_dist[e] += 1
 
+    # Muscle group distribution (count exercises per muscle)
+    muscle_dist: dict[str, int] = {}
+    for w in workouts:
+        if w.is_completed:
+            for exo in w.exercises:
+                m = (exo.muscle or "other").lower()
+                muscle_dist[m] = muscle_dist.get(m, 0) + 1
+
+    # Compute total volume per workout (sum of reps * weight across all exercises/sets)
+    def calc_workout_volume(workout):
+        vol = 0
+        for exo in workout.exercises:
+            sets = exo.sets_details
+            if isinstance(sets, str):
+                try:
+                    sets = json.loads(sets)
+                except Exception:
+                    sets = []
+            if not sets:
+                continue
+            for s in sets:
+                reps = s.get("reps", 0) or 0
+                weight = s.get("weight", 0) or 0
+                vol += reps * weight
+        return vol
+
+    total_volume = sum(calc_workout_volume(w) for w in workouts if w.is_completed)
+
     # Weekly buckets
     weekly = {}
     for w in workouts:
@@ -1240,10 +1371,11 @@ async def get_client_statistics(session: AsyncSession, client_id: int, days: int
         week_start = wo_date - timedelta(days=wo_date.weekday())
         key = str(week_start)
         if key not in weekly:
-            weekly[key] = {"week_start": key, "total": 0, "completed": 0, "ratings": []}
+            weekly[key] = {"week_start": key, "total": 0, "completed": 0, "ratings": [], "volume": 0}
         weekly[key]["total"] += 1
         if w.is_completed:
             weekly[key]["completed"] += 1
+            weekly[key]["volume"] += calc_workout_volume(w)
         if w.rating:
             weekly[key]["ratings"].append(w.rating.overall_rating)
 
@@ -1256,6 +1388,7 @@ async def get_client_statistics(session: AsyncSession, client_id: int, days: int
             "total": entry["total"],
             "completed": entry["completed"],
             "avg_rating": avg_r,
+            "volume": entry["volume"],
         })
 
     # --- Nutrition stats ---
@@ -1308,6 +1441,8 @@ async def get_client_statistics(session: AsyncSession, client_id: int, days: int
             "completion_rate": completion_rate,
             "avg_rating": avg_rating,
             "rated_count": rated_count,
+            "total_volume": total_volume,
+            "muscle_distribution": muscle_dist,
             "difficulty_distribution": diff_dist,
             "energy_distribution": energy_dist,
             "weekly": weekly_list,
@@ -1941,6 +2076,27 @@ async def mark_messages_read(session: AsyncSession, current_user_id: int, other_
     return {"message": "Messages marqués comme lus"}
 
 
+async def notify_coach(session: AsyncSession, client_id: int, notification):
+    """Send a notification message from a client to their coach."""
+    result = await session.execute(select(Users).where(Users.id == client_id))
+    client = result.scalars().first()
+    if not client or not client.coach_id:
+        raise HTTPException(status_code=400, detail="No coach assigned")
+
+    content = json.dumps({
+        "_notification": True,
+        "type": notification.type,
+        "label": notification.label,
+        "client_name": f"{client.firstname} {client.lastname}",
+    })
+
+    msg = Message(sender_id=client_id, receiver_id=client.coach_id, content=content)
+    session.add(msg)
+    await session.commit()
+    await session.refresh(msg)
+    return {"message": "Coach notified"}
+
+
 # ---------------------------------------------------------------------------
 # Forums
 # ---------------------------------------------------------------------------
@@ -2334,6 +2490,9 @@ async def delete_user_account(session: AsyncSession, user_id: int):
     )
     workout_ids = [row[0] for row in workout_ids_result.all()]
     if workout_ids:
+        await session.execute(
+            delete(WorkoutRating).where(WorkoutRating.workout_id.in_(workout_ids))
+        )
         await session.execute(
             delete(WorkoutExercise).where(WorkoutExercise.workout_id.in_(workout_ids))
         )

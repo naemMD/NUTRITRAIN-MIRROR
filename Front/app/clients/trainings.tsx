@@ -11,6 +11,7 @@ import api from '@/services/api';
 import { getUniqueMuscles, getExercisesByMuscle, getSafeExercises, LOCAL_EXERCISES } from '@/constants/exercisesData';
 import { getUserDetails } from '@/services/authStorage';
 import YouTubeVideoModal from '@/components/YouTubeVideoModal';
+import NotifyCoachToggle from '@/components/NotifyCoachToggle';
 
 LocaleConfig.locales['en'] = {
   monthNames: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
@@ -70,6 +71,9 @@ const TrainingDashboard = () => {
   const [ratingEnergy, setRatingEnergy] = useState<string | null>(null);
   const [ratingFeedback, setRatingFeedback] = useState('');
   const [submittingRating, setSubmittingRating] = useState(false);
+  const [isEditingRating, setIsEditingRating] = useState(false);
+  const [notifyCoach, setNotifyCoach] = useState(false);
+  const [userCoachId, setUserCoachId] = useState<number | null>(null);
 
   const openVideoModal = (name: string, url?: string, fromModal?: 'addExo' | 'detail') => {
     // Close any open modal first (two modals can't stack on mobile)
@@ -141,6 +145,7 @@ const TrainingDashboard = () => {
       fetchWorkouts();
       fetchInjuries();
       fetchAiRemaining();
+      getUserDetails().then((u: any) => setUserCoachId(u?.coach_id || null));
     }, [])
   );
 
@@ -380,6 +385,7 @@ const TrainingDashboard = () => {
         setRatingDifficulty(null);
         setRatingEnergy(null);
         setRatingFeedback('');
+        setIsEditingRating(false);
         setRatingModalVisible(true);
       }
   };
@@ -388,16 +394,12 @@ const TrainingDashboard = () => {
       if (!ratingWorkoutId || ratingStars === 0 || !ratingDifficulty || !ratingEnergy) return;
       setSubmittingRating(true);
       const previousWorkouts = [...workouts];
+      const newRating = { overall_rating: ratingStars, perceived_difficulty: ratingDifficulty, energy_level: ratingEnergy, feedback_text: ratingFeedback || null };
       setWorkouts(prev => prev.map(w =>
-          w.id === ratingWorkoutId ? { ...w, is_completed: true } : w
+          w.id === ratingWorkoutId ? { ...w, is_completed: true, rating: newRating } : w
       ));
       try {
-          await api.patch(`/workouts/${ratingWorkoutId}/toggle-complete`, {
-            overall_rating: ratingStars,
-            perceived_difficulty: ratingDifficulty,
-            energy_level: ratingEnergy,
-            feedback_text: ratingFeedback || null,
-          });
+          await api.patch(`/workouts/${ratingWorkoutId}/toggle-complete`, newRating);
           setRatingModalVisible(false);
       } catch (error) {
           console.error("Error submitting rating:", error);
@@ -405,6 +407,46 @@ const TrainingDashboard = () => {
           crossAlert("Error", "Could not complete workout.");
       } finally {
           setSubmittingRating(false);
+      }
+  };
+
+  const openEditRating = (workout: any) => {
+      const r = workout.rating;
+      setRatingWorkoutId(workout.id);
+      setRatingStars(r?.overall_rating || 0);
+      setRatingDifficulty(r?.perceived_difficulty || null);
+      setRatingEnergy(r?.energy_level || null);
+      setRatingFeedback(r?.feedback_text || '');
+      setIsEditingRating(true);
+      // Close detail modal first (can't stack modals on mobile)
+      setDetailModalVisible(false);
+      setTimeout(() => setRatingModalVisible(true), 300);
+  };
+
+  const handleUpdateRating = async () => {
+      if (!ratingWorkoutId || ratingStars === 0 || !ratingDifficulty || !ratingEnergy) return;
+      setSubmittingRating(true);
+      try {
+          await api.put(`/workouts/${ratingWorkoutId}/rating`, {
+            overall_rating: ratingStars,
+            perceived_difficulty: ratingDifficulty,
+            energy_level: ratingEnergy,
+            feedback_text: ratingFeedback || null,
+          });
+          setWorkouts(prev => prev.map(w =>
+              w.id === ratingWorkoutId ? { ...w, rating: { ...w.rating, overall_rating: ratingStars, perceived_difficulty: ratingDifficulty, energy_level: ratingEnergy, feedback_text: ratingFeedback || null } } : w
+          ));
+          if (selectedWorkout && selectedWorkout.id === ratingWorkoutId) {
+              setSelectedWorkout((prev: any) => ({ ...prev, rating: { ...prev?.rating, overall_rating: ratingStars, perceived_difficulty: ratingDifficulty, energy_level: ratingEnergy, feedback_text: ratingFeedback || null } }));
+          }
+          setRatingModalVisible(false);
+          setTimeout(() => setDetailModalVisible(true), 300);
+      } catch (error) {
+          console.error("Error updating rating:", error);
+          crossAlert("Error", "Could not update rating.");
+      } finally {
+          setSubmittingRating(false);
+          setIsEditingRating(false);
       }
   };
 
@@ -565,6 +607,11 @@ const TrainingDashboard = () => {
         })),
       };
       await api.put(`/workouts/${selectedWorkout.id}`, payload);
+      if (notifyCoach && userCoachId) {
+        try {
+          await api.post('/messages/notify-coach', { type: 'workout_updated', label: selectedWorkout.name });
+        } catch (e) { console.log('Notify coach error:', e); }
+      }
       setDetailModalVisible(false);
       fetchWorkouts();
     } catch (error) {
@@ -788,6 +835,24 @@ const TrainingDashboard = () => {
                           </View>
                         )}
 
+                        {selectedWorkout.is_completed && (
+                          <TouchableOpacity
+                            style={styles.editRatingBtn}
+                            onPress={() => openEditRating(selectedWorkout)}
+                          >
+                            <Ionicons name="create-outline" size={18} color="#2ecc71" />
+                            <Text style={styles.editRatingBtnText}>
+                              {selectedWorkout.rating ? 'Edit Rating' : 'Add Rating'}
+                            </Text>
+                            {selectedWorkout.rating && (
+                              <Text style={{color: '#2ecc71', fontSize: 13, marginLeft: 'auto'}}>
+                                {selectedWorkout.rating.overall_rating}/5
+                              </Text>
+                            )}
+                            <Ionicons name="chevron-forward" size={16} color="#888" style={{marginLeft: 8}} />
+                          </TouchableOpacity>
+                        )}
+
                         <ScrollView style={{marginTop: 15}} showsVerticalScrollIndicator={false} keyboardDismissMode="on-drag">
                             {editExercises.map((exo: any, exoIdx: number) => {
                                 const isDur = isDurationExercise(exo);
@@ -858,6 +923,12 @@ const TrainingDashboard = () => {
 
                             <View style={{height: 20}} />
                         </ScrollView>
+
+                        {userCoachId && (
+                          <View style={{marginTop: 10}}>
+                            <NotifyCoachToggle enabled={notifyCoach} onToggle={setNotifyCoach} />
+                          </View>
+                        )}
 
                         {/* Save button */}
                         <TouchableOpacity style={styles.saveWorkoutBtn} onPress={handleSaveWorkout} disabled={saving}>
@@ -1148,8 +1219,9 @@ const TrainingDashboard = () => {
       {/* Rating Modal */}
       <Modal visible={ratingModalVisible} transparent animationType="fade" onRequestClose={() => setRatingModalVisible(false)}>
         <View style={styles.ratingOverlay}>
+          <ScrollView contentContainerStyle={{justifyContent: 'center', flexGrow: 1}} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
           <View style={styles.ratingContainer}>
-            <Text style={styles.ratingTitle}>How was your workout?</Text>
+            <Text style={styles.ratingTitle}>{isEditingRating ? 'Edit Your Rating' : 'How was your workout?'}</Text>
 
             {/* Stars */}
             <Text style={styles.ratingLabel}>Rating</Text>
@@ -1213,22 +1285,29 @@ const TrainingDashboard = () => {
 
             {/* Buttons */}
             <View style={styles.ratingButtons}>
-              <TouchableOpacity style={styles.ratingCancelBtn} onPress={() => setRatingModalVisible(false)}>
+              <TouchableOpacity style={styles.ratingCancelBtn} onPress={() => {
+                setRatingModalVisible(false);
+                if (isEditingRating) {
+                  setTimeout(() => setDetailModalVisible(true), 300);
+                  setIsEditingRating(false);
+                }
+              }}>
                 <Text style={styles.ratingCancelText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.ratingSubmitBtn, (!ratingStars || !ratingDifficulty || !ratingEnergy) && {opacity: 0.4}]}
-                onPress={handleSubmitRating}
+                onPress={isEditingRating ? handleUpdateRating : handleSubmitRating}
                 disabled={!ratingStars || !ratingDifficulty || !ratingEnergy || submittingRating}
               >
                 {submittingRating ? (
                   <ActivityIndicator color="#fff" size="small" />
                 ) : (
-                  <Text style={styles.ratingSubmitText}>Complete Workout</Text>
+                  <Text style={styles.ratingSubmitText}>{isEditingRating ? 'Update Rating' : 'Complete Workout'}</Text>
                 )}
               </TouchableOpacity>
             </View>
           </View>
+          </ScrollView>
         </View>
       </Modal>
 
@@ -1384,6 +1463,8 @@ const styles = StyleSheet.create({
   ratingCancelText: { color: '#888', fontWeight: 'bold', fontSize: 15 },
   ratingSubmitBtn: { flex: 2, paddingVertical: 14, borderRadius: 12, backgroundColor: '#2ecc71', alignItems: 'center', justifyContent: 'center' },
   ratingSubmitText: { color: 'white', fontWeight: 'bold', fontSize: 15 },
+  editRatingBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(46, 204, 113, 0.1)', borderWidth: 1, borderColor: 'rgba(46, 204, 113, 0.3)', borderRadius: 12, padding: 12, marginTop: 12, gap: 10 },
+  editRatingBtnText: { color: '#2ecc71', fontWeight: 'bold', fontSize: 14 },
 });
 
 export default TrainingDashboard;

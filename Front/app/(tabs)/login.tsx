@@ -96,7 +96,7 @@ const LoginPage = () => {
       style={[styles.container, { paddingTop: insets.top }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView contentContainerStyle={styles.scrollContainer} keyboardDismissMode="on-drag">
+      <ScrollView contentContainerStyle={[styles.scrollContainer, { paddingBottom: Math.max(insets.bottom, 20) + 20 }]} keyboardDismissMode="on-drag">
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.back()} style={{width: 38}}>
             <Ionicons name="arrow-back" size={28} color="#3498DB" />

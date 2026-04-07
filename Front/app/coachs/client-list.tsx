@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Dimensions, FlatList, ActivityIndicator, Modal, TextInput, ScrollView, Pressable } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Dimensions, FlatList, ActivityIndicator, Modal, TextInput, ScrollView, Pressable, KeyboardAvoidingView, Platform } from 'react-native';
 import { crossAlert } from '@/services/crossAlert';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -417,6 +417,7 @@ const CoachListScreen = () => {
 
       {/* Modal originale d'Invitation via Code */}
       <Modal visible={isInviteModalVisible} transparent animationType="slide">
+          <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <Pressable style={styles.inviteModalBackground} onPress={() => { setIsInviteModalVisible(false); setInviteError(''); }}>
               <Pressable style={styles.inviteModalContainer} onPress={(e) => e.stopPropagation()}>
                   <Text style={styles.inviteModalTitle}>Invite a Client</Text>
@@ -450,6 +451,7 @@ const CoachListScreen = () => {
                   </View>
               </Pressable>
           </Pressable>
+          </KeyboardAvoidingView>
       </Modal>
 
     </View>

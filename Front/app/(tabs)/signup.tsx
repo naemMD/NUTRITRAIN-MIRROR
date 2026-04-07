@@ -251,7 +251,7 @@ const SignupPage = () => {
       style={[styles.container, { paddingTop: insets.top }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+      <ScrollView contentContainerStyle={[styles.scrollContainer, { paddingBottom: Math.max(insets.bottom, 20) + 20 }]} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.back()}>
             <Ionicons name="arrow-back" size={28} color="#3498DB" />
@@ -498,18 +498,7 @@ const SignupPage = () => {
           )}
 
         </View>
-        
-        <TouchableOpacity style={[styles.signupButton, loading && styles.signupButtonDisabled]} onPress={handleRegister} disabled={loading}>
-          {loading ? <ActivityIndicator color="white" /> : <Text style={styles.signupButtonText}>Sign Up</Text>}
-        </TouchableOpacity>
-        
-        <View style={styles.loginContainer}>
-          <Text style={styles.loginText}>Already have an account? </Text>
-          <TouchableOpacity onPress={() => navigation.push('/(tabs)/login')}>
-            <Text style={styles.loginLink}>Log In</Text>
-          </TouchableOpacity>
-        </View>
-        
+
         {/* Terms of Service section */}
         <View style={styles.cguSection}>
           <TouchableOpacity
@@ -530,6 +519,17 @@ const SignupPage = () => {
               I have read and accept the{' '}
               <Text style={styles.cguLink}>Terms of Service</Text>
             </Text>
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity style={[styles.signupButton, loading && styles.signupButtonDisabled]} onPress={handleRegister} disabled={loading}>
+          {loading ? <ActivityIndicator color="white" /> : <Text style={styles.signupButtonText}>Sign Up</Text>}
+        </TouchableOpacity>
+
+        <View style={styles.loginContainer}>
+          <Text style={styles.loginText}>Already have an account? </Text>
+          <TouchableOpacity onPress={() => navigation.push('/(tabs)/login')}>
+            <Text style={styles.loginLink}>Log In</Text>
           </TouchableOpacity>
         </View>
 

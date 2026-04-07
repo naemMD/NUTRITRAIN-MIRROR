@@ -4,6 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import api from '@/services/api';
 import SimpleLineChart from './charts/SimpleLineChart';
 import SimpleBarChart from './charts/SimpleBarChart';
+import GroupedBarChart from './charts/GroupedBarChart';
+import DonutChart, { formatMuscleLabel } from './charts/DonutChart';
 import HorizontalDistribution from './charts/HorizontalDistribution';
 
 interface ClientStatsViewProps {
@@ -57,10 +59,25 @@ export default function ClientStatsView({ clientId }: ClientStatsViewProps) {
   const ns = stats.nutrition_stats;
 
   // Build chart data
-  const weeklyCompletionData = (ws.weekly || []).map((w: any) => ({
+  const weeklyAttendanceData = (ws.weekly || []).map((w: any) => ({
     label: w.week_start.slice(5), // MM-DD
-    value: w.total > 0 ? Math.round((w.completed / w.total) * 100) : 0,
+    value1: w.total || 0,
+    value2: w.completed || 0,
   }));
+
+  const MUSCLE_COLORS: Record<string, string> = {
+    chest: '#e74c3c', back: '#3498DB', shoulders: '#f39c12', biceps: '#9b59b6',
+    triceps: '#e67e22', quadriceps: '#2ecc71', hamstrings: '#1abc9c', calves: '#34495e',
+    abs: '#e91e63', glutes: '#00bcd4', forearms: '#8bc34a', other: '#888',
+  };
+
+  const muscleSegments = Object.entries(ws.muscle_distribution || {})
+    .sort((a, b) => b[1] as number - (a[1] as number))
+    .map(([key, value]) => ({
+      label: formatMuscleLabel(key),
+      value: value as number,
+      color: MUSCLE_COLORS[key.toLowerCase()] || '#888',
+    }));
 
   const weeklyRatingData = (ws.weekly || [])
     .filter((w: any) => w.avg_rating > 0)
@@ -111,8 +128,8 @@ export default function ClientStatsView({ clientId }: ClientStatsViewProps) {
       {/* KPI Cards */}
       <View style={styles.kpiRow}>
         <View style={styles.kpiCard}>
-          <Text style={styles.kpiValue}>{ws.completion_rate?.toFixed(0) || 0}%</Text>
-          <Text style={styles.kpiLabel}>Completion</Text>
+          <Text style={styles.kpiValue}>{ws.completed > 0 ? (ws.completed / (period / 7)).toFixed(1) : '-'}</Text>
+          <Text style={styles.kpiLabel}>Sessions/wk</Text>
         </View>
         <View style={styles.kpiCard}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
@@ -133,13 +150,21 @@ export default function ClientStatsView({ clientId }: ClientStatsViewProps) {
         <Text style={styles.statsDetail}>{ws.rated_count} rated</Text>
       </View>
 
-      {/* Completion Rate by Week */}
-      {weeklyCompletionData.length > 0 && (
-        <View style={styles.chartCard}>
-          <Text style={styles.chartTitle}>Weekly Completion Rate</Text>
-          <SimpleBarChart data={weeklyCompletionData} color="#2ecc71" suffix="%" />
-        </View>
-      )}
+      {/* Weekly Attendance + Muscle Distribution */}
+      <View style={styles.dualRow}>
+        {weeklyAttendanceData.length > 0 && (
+          <View style={[styles.chartCard, styles.dualCard]}>
+            <Text style={styles.chartTitle}>Weekly Attendance</Text>
+            <GroupedBarChart data={weeklyAttendanceData} color1="#3498DB" color2="#2ecc71" label1="Planned" label2="Done" />
+          </View>
+        )}
+        {muscleSegments.length > 0 && (
+          <View style={[styles.chartCard, styles.dualCard]}>
+            <Text style={styles.chartTitle}>Muscles Worked</Text>
+            <DonutChart segments={muscleSegments} />
+          </View>
+        )}
+      </View>
 
       {/* Avg Rating by Week */}
       {weeklyRatingData.length > 0 && (
@@ -222,6 +247,8 @@ const styles = StyleSheet.create({
 
   chartCard: { backgroundColor: '#232D3F', borderRadius: 14, padding: 16, marginBottom: 14 },
   chartTitle: { color: 'white', fontSize: 15, fontWeight: 'bold', marginBottom: 14 },
+  dualRow: { gap: 14, marginBottom: 0 },
+  dualCard: { flex: 1 },
 
   macroRow: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'flex-end', paddingVertical: 10 },
   macroItem: { alignItems: 'center', gap: 6 },

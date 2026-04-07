@@ -85,8 +85,64 @@ const ChatScreen = () => {
     router.push({ pathname: path as any, params: { [currentUserRole === 'client' ? 'coachId' : 'clientId']: id } });
   };
 
+  const parseNotification = (content: string) => {
+    try {
+      const parsed = JSON.parse(content);
+      if (parsed._notification) return parsed;
+    } catch {}
+    return null;
+  };
+
+  const getNotificationIcon = (type: string): string => {
+    if (type.startsWith('meal')) return 'restaurant-outline';
+    if (type.startsWith('workout')) return 'barbell-outline';
+    if (type.startsWith('profile')) return 'person-outline';
+    return 'notifications-outline';
+  };
+
+  const getNotificationLabel = (type: string): string => {
+    const labels: Record<string, string> = {
+      meal_created: 'New Meal',
+      meal_updated: 'Meal Updated',
+      workout_updated: 'Workout Updated',
+      profile_updated: 'Profile Updated',
+    };
+    return labels[type] || 'Update';
+  };
+
+  const handleNotificationPress = (notif: any) => {
+    const targetId = currentUserRole === 'coach' ? id : id;
+    if (notif.type.startsWith('meal') || notif.type.startsWith('profile')) {
+      router.push({ pathname: '/coachs/client-details' as any, params: { clientId: targetId } });
+    } else if (notif.type.startsWith('workout')) {
+      router.push({ pathname: '/coachs/client-details' as any, params: { clientId: targetId } });
+    }
+  };
+
   const renderMessage = ({ item }: { item: any }) => {
     const isMe = item.sender_id === currentUserId;
+    const notif = parseNotification(item.content);
+
+    if (notif) {
+      return (
+        <TouchableOpacity
+          style={[styles.notifBubble, isMe ? styles.myNotif : styles.theirNotif]}
+          onPress={() => handleNotificationPress(notif)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.notifHeader}>
+            <Ionicons name={getNotificationIcon(notif.type) as any} size={18} color="#3498DB" />
+            <Text style={styles.notifType}>{getNotificationLabel(notif.type)}</Text>
+          </View>
+          <Text style={styles.notifLabel}>{notif.label}</Text>
+          <View style={styles.notifFooter}>
+            <Text style={styles.notifTap}>Tap to view</Text>
+            <Text style={styles.timeText}>{formatTime(item.timestamp)}</Text>
+          </View>
+        </TouchableOpacity>
+      );
+    }
+
     return (
       <View style={[styles.messageBubble, isMe ? styles.myMessage : styles.theirMessage]}>
         <Text style={styles.messageText}>{item.content}</Text>
@@ -196,15 +252,23 @@ const styles = StyleSheet.create({
     height: 40, 
     fontSize: 16 
   },
-  sendButton: { 
-    backgroundColor: '#3498DB', 
-    width: 40, 
-    height: 40, 
-    borderRadius: 20, 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    marginLeft: 10 
-  }
+  sendButton: {
+    backgroundColor: '#3498DB',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 10
+  },
+  notifBubble: { maxWidth: '85%', padding: 14, borderRadius: 16, marginVertical: 4, borderWidth: 1, borderColor: 'rgba(52, 152, 219, 0.3)', backgroundColor: 'rgba(52, 152, 219, 0.08)' },
+  myNotif: { alignSelf: 'flex-end' },
+  theirNotif: { alignSelf: 'flex-start' },
+  notifHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+  notifType: { color: '#3498DB', fontSize: 13, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 0.5 },
+  notifLabel: { color: 'white', fontSize: 15, fontWeight: '600', marginBottom: 8 },
+  notifFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  notifTap: { color: '#3498DB', fontSize: 11, fontWeight: '600' },
 });
 
 export default ChatScreen;

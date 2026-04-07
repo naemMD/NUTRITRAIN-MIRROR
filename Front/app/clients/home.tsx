@@ -14,6 +14,7 @@ import { getUserDetails } from '@/services/authStorage';
 import api from '@/services/api';
 import MealCard from '@/components/MealCard';
 import FoodResultsPicker from '@/components/FoodResultsPicker';
+import NotifyCoachToggle from '@/components/NotifyCoachToggle';
 
 const { width, height } = Dimensions.get('window');
 
@@ -59,6 +60,7 @@ const HomeScreen = () => {
   const [editingId, setEditingId] = useState(null);
   const [loadingSearch, setLoadingSearch] = useState(false);
   const [savingMeal, setSavingMeal] = useState(false);
+  const [notifyCoach, setNotifyCoach] = useState(false);
 
   // --- LIMITS ---
   const MAX_MEALS_PER_DAY = 6;
@@ -364,6 +366,11 @@ const HomeScreen = () => {
         await api.put(`/updateMeal/${editingId}`, mealData);
       } else {
         await api.post(`/addMeal/${user?.id}`, mealData);
+      }
+      if (notifyCoach && user?.coach_id) {
+        try {
+          await api.post('/messages/notify-coach', { type: editingId ? 'meal_updated' : 'meal_created', label: mealName });
+        } catch (e) { console.log('Notify coach error:', e); }
       }
       await loadData();
       handleCloseModal();
@@ -821,6 +828,12 @@ const HomeScreen = () => {
                     <Text style={styles.summaryTitleNew}>Total: {(totalMealMacros.calories || 0).toFixed(0)} kcal</Text>
                     <Text style={styles.summaryTextNew}>P: {(totalMealMacros.proteins || 0).toFixed(1)}g | C: {(totalMealMacros.carbs || 0).toFixed(1)}g | F: {(totalMealMacros.fats || 0).toFixed(1)}g</Text>
                 </View>
+
+                {user?.coach_id && (
+                  <View style={{marginBottom: 12}}>
+                    <NotifyCoachToggle enabled={notifyCoach} onToggle={setNotifyCoach} />
+                  </View>
+                )}
 
                 <View style={[styles.modalActionsNew, { gap: 10 }]}>
                     {editingId && (

@@ -58,6 +58,10 @@ class MessageRead(MessageBase):
     class Config:
         from_attributes = True
 
+class CoachNotification(BaseModel):
+    type: str  # meal_created, meal_updated, workout_created, workout_updated, profile_updated
+    label: str  # e.g. "Breakfast", "Push Day", "Weight: 75kg"
+
 class ConversationRead(BaseModel):
     client_id: int
     client_firstname: str
@@ -321,6 +325,7 @@ class WorkoutRead(WorkoutBase):
 
     is_completed: bool = False
     is_ai_generated: bool = False
+    rating: Optional["WorkoutRatingRead"] = None
 
     class Config:
         from_attributes = True
@@ -391,6 +396,8 @@ class WorkoutRatingRead(BaseModel):
 
     class Config:
         from_attributes = True
+
+WorkoutRead.model_rebuild()
 
 
 class MacroUpdate(BaseModel):
@@ -677,6 +684,7 @@ __all__ = [
     "Message",
     "MessageCreate",
     "MessageRead",
+    "CoachNotification",
     "ConversationRead",
     "CoachInvitation",
     "InvitationCreate",
@@ -694,6 +702,9 @@ __all__ = [
     "WorkoutRead",
     "WorkoutExerciseCreate",
     "WorkoutExerciseRead",
+    "WorkoutRating",
+    "WorkoutRatingCreate",
+    "WorkoutRatingRead",
     "MealCreate",
     "MealRead",
     "UserGoalUpdate",

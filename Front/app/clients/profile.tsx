@@ -9,6 +9,7 @@ import api from '@/services/api';
 import { crossAlert } from '@/services/crossAlert';
 import { copyToClipboard } from '@/services/crossClipboard';
 import Toast from 'react-native-toast-message';
+import NotifyCoachToggle from '@/components/NotifyCoachToggle';
 
 const GOAL_OPTIONS = [
   { key: 'lose_weight', label: 'Weight Loss', color: '#E74C3C' },
@@ -21,6 +22,7 @@ const ProfileScreen = () => {
   const [loading, setLoading] = useState(true);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [notifyCoach, setNotifyCoach] = useState(false);
 
   // Edit form state
   const [editFirstname, setEditFirstname] = useState('');
@@ -91,6 +93,16 @@ const ProfileScreen = () => {
       if (editGoal) payload.goal = editGoal;
 
       await api.patch('/users/me/profile', payload);
+      if (notifyCoach && user?.coach_id) {
+        const changes = [];
+        if (editWeight && parseFloat(editWeight) !== user.weight) changes.push(`Weight: ${editWeight}kg`);
+        if (editHeight && parseFloat(editHeight) !== user.height) changes.push(`Height: ${editHeight}cm`);
+        if (editGoal && editGoal !== user.goal) changes.push(`Goal: ${editGoal.replace('_', ' ')}`);
+        const label = changes.length > 0 ? changes.join(', ') : 'Profile updated';
+        try {
+          await api.post('/messages/notify-coach', { type: 'profile_updated', label });
+        } catch (e) { console.log('Notify coach error:', e); }
+      }
       Toast.show({ type: 'success', text1: 'Profile updated!' });
       setIsEditModalVisible(false);
       loadData();
@@ -231,6 +243,12 @@ const ProfileScreen = () => {
                   </TouchableOpacity>
                 ))}
               </View>
+
+              {user?.coach_id && (
+                <View style={{ marginTop: 20 }}>
+                  <NotifyCoachToggle enabled={notifyCoach} onToggle={setNotifyCoach} />
+                </View>
+              )}
 
               <View style={styles.modalActions}>
                 <TouchableOpacity style={styles.cancelBtn} onPress={() => setIsEditModalVisible(false)}>

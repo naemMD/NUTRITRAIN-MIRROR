@@ -228,6 +228,16 @@ async def toggle_workout_complete_route(
     return await toggle_workout_complete(session, workout_id, user_id, rating_data=rating_data.model_dump() if rating_data else None)
 
 
+@router.put("/workouts/{workout_id}/rating")
+async def update_workout_rating_route(
+    workout_id: int,
+    rating_data: WorkoutRatingCreate,
+    user_id: int = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_session)
+):
+    return await update_workout_rating(session, workout_id, user_id, rating_data.model_dump())
+
+
 @router.delete("/workouts/{workout_id}")
 async def delete_workout_route(
     workout_id: int,
@@ -830,6 +840,15 @@ async def send_message_route(
     session: AsyncSession = Depends(get_session)
 ):
     return await send_message(session, current_user_id, message_data)
+
+
+@router.post("/messages/notify-coach")
+async def notify_coach_route(
+    notification: CoachNotification,
+    current_user_id: int = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_session)
+):
+    return await notify_coach(session, current_user_id, notification)
 
 
 @router.put("/messages/read/{other_user_id}")
