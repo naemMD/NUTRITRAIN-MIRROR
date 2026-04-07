@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.model import *
 from app.database import get_session
 from app.api import *
-from app.schemas import WorkoutCreate, WorkoutRead, WorkoutExerciseCreate, MealRead, MealCreateByCoach, UserGoalUpdate, MacroUpdate, ForumCreate, ForumUpdate, ForumMessageCreate, AIChatRequest, AIChatResponse, AIChatMessageRead, AIChatMessage, AI_DAILY_MESSAGE_LIMIT, AI_WEEKLY_WORKOUT_LIMIT, AI_DAILY_WORKOUT_LIMIT, UserInjury, UserInjuryRead, InjuryProposal, InjuryConfirmRequest, GenerateProgramRequest, SaveGeneratedProgramRequest, Users, Workout, WorkoutExercise, NewsletterSubscribeRequest, NewsletterSendRequest
+from app.schemas import WorkoutCreate, WorkoutRead, WorkoutExerciseCreate, MealRead, MealCreateByCoach, UserGoalUpdate, MacroUpdate, ForumCreate, ForumUpdate, ForumMessageCreate, AIChatRequest, AIChatResponse, AIChatMessageRead, AIChatMessage, AI_DAILY_MESSAGE_LIMIT, AI_WEEKLY_WORKOUT_LIMIT, AI_DAILY_WORKOUT_LIMIT, UserInjury, UserInjuryRead, InjuryProposal, InjuryConfirmRequest, GenerateProgramRequest, SaveGeneratedProgramRequest, Users, Workout, WorkoutExercise, NewsletterSubscribeRequest, NewsletterSendRequest, WorkoutRatingCreate
 from typing import List, Any, Optional
 from jose import JWTError, jwt
 from dotenv import load_dotenv
@@ -221,10 +221,11 @@ async def update_workout_route(
 @router.patch("/workouts/{workout_id}/toggle-complete")
 async def toggle_workout_complete_route(
     workout_id: int,
+    rating_data: Optional[WorkoutRatingCreate] = None,
     user_id: int = Depends(get_current_user_id),
     session: AsyncSession = Depends(get_session)
 ):
-    return await toggle_workout_complete(session, workout_id, user_id)
+    return await toggle_workout_complete(session, workout_id, user_id, rating_data=rating_data.model_dump() if rating_data else None)
 
 
 @router.delete("/workouts/{workout_id}")
@@ -591,6 +592,16 @@ async def get_client_dashboard_stats_for_coach(
     session: AsyncSession = Depends(get_session)
 ):
     return await get_client_dashboard_stats(session, client_id)
+
+
+@router.get("/coaches/client-stats/{client_id}")
+async def get_client_statistics_route(
+    client_id: int,
+    period: int = 30,
+    current_user: int = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_session)
+):
+    return await get_client_statistics(session, client_id, days=period)
 
 
 # -- GET dynamiques /coaches/{coach_id}/...  — en dernier

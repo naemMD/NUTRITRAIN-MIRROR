@@ -13,6 +13,7 @@ import { crossAlert } from '@/services/crossAlert';
 import { getUniqueMuscles, getExercisesByMuscle } from '@/constants/exercisesData';
 import api from '@/services/api';
 import FoodResultsPicker from '@/components/FoodResultsPicker';
+import ClientStatsView from '@/components/ClientStatsView';
 
 const { width } = Dimensions.get('window');
 
@@ -87,6 +88,9 @@ const ClientDetailsScreen = () => {
   
   // --- WEB MANUAL BARCODE STATE ---
   const [manualBarcode, setManualBarcode] = useState('');
+
+  // --- STATS VIEW TOGGLE ---
+  const [showStats, setShowStats] = useState(false);
 
   // --- SCANNER DETAIL MODAL STATES ---
   const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
@@ -602,6 +606,28 @@ const ClientDetailsScreen = () => {
                 <TouchableOpacity onPress={() => changeDate(1)}><Ionicons name="chevron-forward" size={24} color="#3498DB" /></TouchableOpacity>
             </View>
 
+            {/* Daily / Statistics toggle */}
+            <View style={styles.viewToggleRow}>
+              <TouchableOpacity
+                style={[styles.viewToggleBtn, !showStats && styles.viewToggleBtnActive]}
+                onPress={() => setShowStats(false)}
+              >
+                <Ionicons name="calendar-outline" size={16} color={!showStats ? '#3498DB' : '#666'} />
+                <Text style={[styles.viewToggleText, !showStats && styles.viewToggleTextActive]}>Daily View</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.viewToggleBtn, showStats && styles.viewToggleBtnActive]}
+                onPress={() => setShowStats(true)}
+              >
+                <Ionicons name="stats-chart-outline" size={16} color={showStats ? '#3498DB' : '#666'} />
+                <Text style={[styles.viewToggleText, showStats && styles.viewToggleTextActive]}>Statistics</Text>
+              </TouchableOpacity>
+            </View>
+
+            {showStats ? (
+              <ClientStatsView clientId={Number(clientId)} />
+            ) : (
+            <>
             <View style={styles.sectionContainer}>
                 <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15}}>
                    <Text style={styles.sectionTitle}>Nutrition Goals</Text>
@@ -739,6 +765,8 @@ const ClientDetailsScreen = () => {
                 </View>
             </View>
             <View style={{height: 40}}/>
+            </>
+            )}
         </ScrollView>
       )}
 
@@ -1192,6 +1220,11 @@ const styles = StyleSheet.create({
   dateNavigator: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#2A4562', padding: 15, borderRadius: 15, marginBottom: 20 },
   dateText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
   todayBadge: { color: '#3498DB', fontSize: 12, fontWeight: 'bold', marginTop: 2 },
+  viewToggleRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
+  viewToggleBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 12, backgroundColor: '#232D3F' },
+  viewToggleBtnActive: { backgroundColor: 'rgba(52, 152, 219, 0.15)', borderWidth: 1, borderColor: '#3498DB' },
+  viewToggleText: { color: '#666', fontSize: 14, fontWeight: '600' },
+  viewToggleTextActive: { color: '#3498DB' },
   sectionContainer: { marginBottom: 30 },
   sectionTitle: { color: 'white', fontSize: 18, fontWeight: 'bold' },
   caloriesCard: { backgroundColor: '#2A4562', borderRadius: 15, padding: 20, marginBottom: 15 },

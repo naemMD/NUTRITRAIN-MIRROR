@@ -618,7 +618,7 @@ async def delete_workout_for_user(session: AsyncSession, workout_id: int, user_i
     return {"message": "Workout deleted"}
 
 
-async def toggle_workout_complete(session: AsyncSession, workout_id: int, user_id: int):
+async def toggle_workout_complete(session: AsyncSession, workout_id: int, user_id: int, rating_data: dict = None):
     result = await session.execute(
         select(Workout).where(Workout.id == workout_id, Workout.user_id == user_id)
     )
@@ -627,7 +627,25 @@ async def toggle_workout_complete(session: AsyncSession, workout_id: int, user_i
     if not workout:
         raise HTTPException(status_code=404, detail="Workout not found")
 
-    workout.is_completed = not (workout.is_completed or False)
+    if not (workout.is_completed or False):
+        # Completing the workout — create rating if provided
+        workout.is_completed = True
+        if rating_data:
+            rating = WorkoutRating(
+                workout_id=workout_id,
+                user_id=user_id,
+                overall_rating=rating_data.get("overall_rating"),
+                perceived_difficulty=rating_data.get("perceived_difficulty"),
+                energy_level=rating_data.get("energy_level"),
+                feedback_text=rating_data.get("feedback_text"),
+            )
+            session.add(rating)
+    else:
+        # Uncompleting the workout — delete associated rating
+        workout.is_completed = False
+        await session.execute(
+            delete(WorkoutRating).where(WorkoutRating.workout_id == workout_id)
+        )
 
     await session.commit()
     await session.refresh(workout)
@@ -1118,7 +1136,7 @@ async def get_client_details_full(session: AsyncSession, client_id: int, target_
     result_workouts = await session.execute(
         select(Workout)
         .where(Workout.user_id == client_id, func.date(Workout.scheduled_date) == query_date)
-        .options(selectinload(Workout.exercises))
+        .options(selectinload(Workout.exercises), selectinload(Workout.rating))
     )
     workouts = result_workouts.scalars().all()
 
@@ -1161,6 +1179,12 @@ async def get_client_details_full(session: AsyncSession, client_id: int, target_
                 "name": w.name,
                 "is_completed": w.is_completed,
                 "is_ai_generated": w.is_ai_generated,
+                "rating": {
+                    "overall_rating": w.rating.overall_rating,
+                    "perceived_difficulty": w.rating.perceived_difficulty,
+                    "energy_level": w.rating.energy_level,
+                    "feedback_text": w.rating.feedback_text,
+                } if w.rating else None,
                 "exercises": [
                     {
                         "name": exo.name,
@@ -1171,6 +1195,131 @@ async def get_client_details_full(session: AsyncSession, client_id: int, target_
                 ]
             } for w in workouts
         ]
+    }
+
+
+async def get_client_statistics(session: AsyncSession, client_id: int, days: int = 30):
+    """Aggregate workout and nutrition statistics for a client over N days."""
+    end_date = datetime.now().date()
+    start_date = end_date - timedelta(days=days)
+
+    # --- Workout stats ---
+    wo_result = await session.execute(
+        select(Workout)
+        .where(
+            Workout.user_id == client_id,
+            func.date(Workout.scheduled_date) >= start_date,
+            func.date(Workout.scheduled_date) <= end_date,
+        )
+        .options(selectinload(Workout.rating))
+    )
+    workouts = wo_result.scalars().all()
+
+    total_wo = len(workouts)
+    completed_wo = sum(1 for w in workouts if w.is_completed)
+    completion_rate = round((completed_wo / total_wo * 100) if total_wo else 0, 1)
+
+    rated = [w for w in workouts if w.rating]
+    avg_rating = round(sum(w.rating.overall_rating for w in rated) / len(rated), 1) if rated else None
+    rated_count = len(rated)
+
+    diff_dist = {"too_easy": 0, "just_right": 0, "hard": 0, "too_hard": 0}
+    energy_dist = {"fresh": 0, "normal": 0, "tired": 0, "exhausted": 0}
+    for w in rated:
+        d = w.rating.perceived_difficulty
+        e = w.rating.energy_level
+        if d in diff_dist:
+            diff_dist[d] += 1
+        if e in energy_dist:
+            energy_dist[e] += 1
+
+    # Weekly buckets
+    weekly = {}
+    for w in workouts:
+        wo_date = w.scheduled_date.date() if hasattr(w.scheduled_date, 'date') else w.scheduled_date
+        week_start = wo_date - timedelta(days=wo_date.weekday())
+        key = str(week_start)
+        if key not in weekly:
+            weekly[key] = {"week_start": key, "total": 0, "completed": 0, "ratings": []}
+        weekly[key]["total"] += 1
+        if w.is_completed:
+            weekly[key]["completed"] += 1
+        if w.rating:
+            weekly[key]["ratings"].append(w.rating.overall_rating)
+
+    weekly_list = []
+    for k in sorted(weekly.keys()):
+        entry = weekly[k]
+        avg_r = round(sum(entry["ratings"]) / len(entry["ratings"]), 1) if entry["ratings"] else None
+        weekly_list.append({
+            "week_start": entry["week_start"],
+            "total": entry["total"],
+            "completed": entry["completed"],
+            "avg_rating": avg_r,
+        })
+
+    # --- Nutrition stats ---
+    meal_result = await session.execute(
+        select(Meal).where(
+            Meal.user_id == client_id,
+            func.date(Meal.hourtime) >= start_date,
+            func.date(Meal.hourtime) <= end_date,
+            Meal.is_consumed == True,
+        )
+    )
+    meals = meal_result.scalars().all()
+
+    daily_nutrition = {}
+    for m in meals:
+        d = str(m.hourtime.date() if hasattr(m.hourtime, 'date') else m.hourtime)
+        if d not in daily_nutrition:
+            daily_nutrition[d] = {"date": d, "calories": 0, "proteins": 0, "carbs": 0, "fats": 0}
+        daily_nutrition[d]["calories"] += m.total_calories or 0
+        daily_nutrition[d]["proteins"] += m.total_proteins or 0
+        daily_nutrition[d]["carbs"] += m.total_carbohydrates or 0
+        daily_nutrition[d]["fats"] += m.total_lipids or 0
+
+    daily_list = [daily_nutrition[k] for k in sorted(daily_nutrition.keys())]
+    days_logged = len(daily_list)
+
+    avg_cal = round(sum(d["calories"] for d in daily_list) / days_logged, 1) if days_logged else 0
+    avg_prot = round(sum(d["proteins"] for d in daily_list) / days_logged, 1) if days_logged else 0
+    avg_carbs = round(sum(d["carbs"] for d in daily_list) / days_logged, 1) if days_logged else 0
+    avg_fats = round(sum(d["fats"] for d in daily_list) / days_logged, 1) if days_logged else 0
+
+    # Round daily values
+    for d in daily_list:
+        d["calories"] = round(d["calories"], 0)
+        d["proteins"] = round(d["proteins"], 1)
+        d["carbs"] = round(d["carbs"], 1)
+        d["fats"] = round(d["fats"], 1)
+
+    # Get client's calorie goal for reference
+    client_result = await session.execute(select(Users).where(Users.id == client_id))
+    client = client_result.scalars().first()
+    calorie_goal = client.daily_caloric_needs or 2500 if client else 2500
+
+    return {
+        "period_days": days,
+        "calorie_goal": calorie_goal,
+        "workout_stats": {
+            "total": total_wo,
+            "completed": completed_wo,
+            "completion_rate": completion_rate,
+            "avg_rating": avg_rating,
+            "rated_count": rated_count,
+            "difficulty_distribution": diff_dist,
+            "energy_distribution": energy_dist,
+            "weekly": weekly_list,
+        },
+        "nutrition_stats": {
+            "avg_daily_calories": avg_cal,
+            "avg_proteins": avg_prot,
+            "avg_carbs": avg_carbs,
+            "avg_fats": avg_fats,
+            "days_logged": days_logged,
+            "daily": daily_list,
+        },
     }
 
 

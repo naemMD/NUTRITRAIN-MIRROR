@@ -339,6 +339,7 @@ class Workout(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     exercises = relationship("WorkoutExercise", back_populates="workout", cascade="all, delete-orphan")
+    rating = relationship("WorkoutRating", uselist=False, back_populates="workout", cascade="all, delete-orphan")
 
     is_completed = Column(Boolean, default=False)
     is_ai_generated = Column(Boolean, default=False)
@@ -355,6 +356,42 @@ class WorkoutExercise(Base):
     sets_details = Column(JSON, nullable=True)
 
     workout = relationship("Workout", back_populates="exercises")
+
+
+class WorkoutRating(Base):
+    __tablename__ = "workout_ratings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    workout_id = Column(Integer, ForeignKey("workouts.id"), unique=True, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    overall_rating = Column(Integer, nullable=False)  # 1-5
+    perceived_difficulty = Column(String(20), nullable=False)  # too_easy, just_right, hard, too_hard
+    energy_level = Column(String(20), nullable=False)  # fresh, normal, tired, exhausted
+    feedback_text = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    workout = relationship("Workout", back_populates="rating")
+
+
+class WorkoutRatingCreate(BaseModel):
+    overall_rating: int = Field(..., ge=1, le=5)
+    perceived_difficulty: str  # too_easy, just_right, hard, too_hard
+    energy_level: str  # fresh, normal, tired, exhausted
+    feedback_text: Optional[str] = None
+
+
+class WorkoutRatingRead(BaseModel):
+    id: int
+    workout_id: int
+    overall_rating: int
+    perceived_difficulty: str
+    energy_level: str
+    feedback_text: Optional[str]
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
 
 class MacroUpdate(BaseModel):
     daily_caloric_needs: Optional[float] = None

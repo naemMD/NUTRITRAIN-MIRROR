@@ -62,6 +62,15 @@ const TrainingDashboard = () => {
   const [videoUrl, setVideoUrl] = useState<string | undefined>(undefined);
   const [reopenModalAfterVideo, setReopenModalAfterVideo] = useState<'addExo' | 'detail' | null>(null);
 
+  // Rating modal state
+  const [ratingModalVisible, setRatingModalVisible] = useState(false);
+  const [ratingWorkoutId, setRatingWorkoutId] = useState<number | null>(null);
+  const [ratingStars, setRatingStars] = useState(0);
+  const [ratingDifficulty, setRatingDifficulty] = useState<string | null>(null);
+  const [ratingEnergy, setRatingEnergy] = useState<string | null>(null);
+  const [ratingFeedback, setRatingFeedback] = useState('');
+  const [submittingRating, setSubmittingRating] = useState(false);
+
   const openVideoModal = (name: string, url?: string, fromModal?: 'addExo' | 'detail') => {
     // Close any open modal first (two modals can't stack on mobile)
     if (fromModal === 'addExo' && addExoModalVisible) {
@@ -348,18 +357,54 @@ const TrainingDashboard = () => {
   };
 
   const handleToggleWorkout = async (workoutId: number) => {
+      const workout = workouts.find(w => w.id === workoutId);
+      if (!workout) return;
+
+      if (workout.is_completed) {
+        // Uncomplete: toggle directly, no modal
+        const previousWorkouts = [...workouts];
+        setWorkouts(prev => prev.map(w =>
+            w.id === workoutId ? { ...w, is_completed: false } : w
+        ));
+        try {
+            await api.patch(`/workouts/${workoutId}/toggle-complete`);
+        } catch (error) {
+            console.error("Error toggling workout:", error);
+            setWorkouts(previousWorkouts);
+            crossAlert("Error", "Could not update status.");
+        }
+      } else {
+        // Complete: open rating modal
+        setRatingWorkoutId(workoutId);
+        setRatingStars(0);
+        setRatingDifficulty(null);
+        setRatingEnergy(null);
+        setRatingFeedback('');
+        setRatingModalVisible(true);
+      }
+  };
+
+  const handleSubmitRating = async () => {
+      if (!ratingWorkoutId || ratingStars === 0 || !ratingDifficulty || !ratingEnergy) return;
+      setSubmittingRating(true);
       const previousWorkouts = [...workouts];
-
-      setWorkouts(prev => prev.map(w => 
-          w.id === workoutId ? { ...w, is_completed: !w.is_completed } : w
+      setWorkouts(prev => prev.map(w =>
+          w.id === ratingWorkoutId ? { ...w, is_completed: true } : w
       ));
-
       try {
-          await api.patch(`/workouts/${workoutId}/toggle-complete`);
+          await api.patch(`/workouts/${ratingWorkoutId}/toggle-complete`, {
+            overall_rating: ratingStars,
+            perceived_difficulty: ratingDifficulty,
+            energy_level: ratingEnergy,
+            feedback_text: ratingFeedback || null,
+          });
+          setRatingModalVisible(false);
       } catch (error) {
-          console.error("Error toggling workout:", error);
-          setWorkouts(previousWorkouts); 
-          crossAlert("Error", "Could not update status.");
+          console.error("Error submitting rating:", error);
+          setWorkouts(previousWorkouts);
+          crossAlert("Error", "Could not complete workout.");
+      } finally {
+          setSubmittingRating(false);
       }
   };
 
@@ -1100,6 +1145,93 @@ const TrainingDashboard = () => {
         </View>
       </Modal>
 
+      {/* Rating Modal */}
+      <Modal visible={ratingModalVisible} transparent animationType="fade" onRequestClose={() => setRatingModalVisible(false)}>
+        <View style={styles.ratingOverlay}>
+          <View style={styles.ratingContainer}>
+            <Text style={styles.ratingTitle}>How was your workout?</Text>
+
+            {/* Stars */}
+            <Text style={styles.ratingLabel}>Rating</Text>
+            <View style={styles.ratingStarsRow}>
+              {[1, 2, 3, 4, 5].map(n => (
+                <TouchableOpacity key={n} onPress={() => setRatingStars(n)} style={{padding: 4}}>
+                  <Ionicons name={n <= ratingStars ? "star" : "star-outline"} size={36} color={n <= ratingStars ? "#f39c12" : "#555"} />
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Difficulty */}
+            <Text style={styles.ratingLabel}>Perceived Difficulty</Text>
+            <View style={styles.ratingPillsRow}>
+              {([
+                { key: 'too_easy', label: 'Too Easy' },
+                { key: 'just_right', label: 'Just Right' },
+                { key: 'hard', label: 'Hard' },
+                { key: 'too_hard', label: 'Too Hard' },
+              ] as const).map(opt => (
+                <TouchableOpacity
+                  key={opt.key}
+                  style={[styles.ratingPill, ratingDifficulty === opt.key && styles.ratingPillActive]}
+                  onPress={() => setRatingDifficulty(opt.key)}
+                >
+                  <Text style={[styles.ratingPillText, ratingDifficulty === opt.key && styles.ratingPillTextActive]}>{opt.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Energy */}
+            <Text style={styles.ratingLabel}>Energy Level</Text>
+            <View style={styles.ratingPillsRow}>
+              {([
+                { key: 'fresh', label: 'Fresh' },
+                { key: 'normal', label: 'Normal' },
+                { key: 'tired', label: 'Tired' },
+                { key: 'exhausted', label: 'Exhausted' },
+              ] as const).map(opt => (
+                <TouchableOpacity
+                  key={opt.key}
+                  style={[styles.ratingPill, ratingEnergy === opt.key && styles.ratingPillActive]}
+                  onPress={() => setRatingEnergy(opt.key)}
+                >
+                  <Text style={[styles.ratingPillText, ratingEnergy === opt.key && styles.ratingPillTextActive]}>{opt.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Feedback */}
+            <Text style={styles.ratingLabel}>Feedback (optional)</Text>
+            <TextInput
+              style={styles.ratingTextInput}
+              placeholder="Any notes about this workout..."
+              placeholderTextColor="#555"
+              multiline
+              numberOfLines={3}
+              value={ratingFeedback}
+              onChangeText={setRatingFeedback}
+            />
+
+            {/* Buttons */}
+            <View style={styles.ratingButtons}>
+              <TouchableOpacity style={styles.ratingCancelBtn} onPress={() => setRatingModalVisible(false)}>
+                <Text style={styles.ratingCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.ratingSubmitBtn, (!ratingStars || !ratingDifficulty || !ratingEnergy) && {opacity: 0.4}]}
+                onPress={handleSubmitRating}
+                disabled={!ratingStars || !ratingDifficulty || !ratingEnergy || submittingRating}
+              >
+                {submittingRating ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.ratingSubmitText}>Complete Workout</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <YouTubeVideoModal
         visible={videoModalVisible}
         exerciseName={videoExerciseName}
@@ -1234,6 +1366,24 @@ const styles = StyleSheet.create({
   previewRejectText: { color: '#e74c3c', fontWeight: 'bold', fontSize: 13 },
   previewAcceptBtn: { flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 11, borderRadius: 10, backgroundColor: '#2ecc71' },
   previewAcceptText: { color: 'white', fontWeight: 'bold', fontSize: 13 },
+
+  // Rating modal
+  ratingOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', paddingHorizontal: 20 },
+  ratingContainer: { backgroundColor: '#1A1F2B', borderRadius: 20, padding: 24, borderWidth: 1, borderColor: '#2A4562' },
+  ratingTitle: { color: 'white', fontSize: 22, fontWeight: 'bold', textAlign: 'center', marginBottom: 20 },
+  ratingLabel: { color: '#888', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, marginTop: 16 },
+  ratingStarsRow: { flexDirection: 'row', justifyContent: 'center', gap: 4 },
+  ratingPillsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  ratingPill: { backgroundColor: '#232D3F', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
+  ratingPillActive: { backgroundColor: 'rgba(46, 204, 113, 0.2)', borderWidth: 1, borderColor: '#2ecc71' },
+  ratingPillText: { color: '#888', fontSize: 13, fontWeight: '600' },
+  ratingPillTextActive: { color: '#2ecc71' },
+  ratingTextInput: { backgroundColor: '#232D3F', color: 'white', borderRadius: 12, padding: 14, fontSize: 14, textAlignVertical: 'top', minHeight: 70, marginTop: 4 },
+  ratingButtons: { flexDirection: 'row', gap: 12, marginTop: 24 },
+  ratingCancelBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: '#555', alignItems: 'center' },
+  ratingCancelText: { color: '#888', fontWeight: 'bold', fontSize: 15 },
+  ratingSubmitBtn: { flex: 2, paddingVertical: 14, borderRadius: 12, backgroundColor: '#2ecc71', alignItems: 'center', justifyContent: 'center' },
+  ratingSubmitText: { color: 'white', fontWeight: 'bold', fontSize: 15 },
 });
 
 export default TrainingDashboard;
