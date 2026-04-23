@@ -236,16 +236,6 @@ const SignupPage = () => {
     }
   };
   
-  const testServerConnection = async () => {
-    try {
-      const response = await fetch(`${API_URL}/`);
-      const data = await response.json();
-      Toast.show({ type: 'info', text1: 'Server OK', text2: JSON.stringify(data) });
-    } catch (err: any) {
-      Toast.show({ type: 'error', text1: 'Server Error', text2: err.message });
-    }
-  };
-  
   return (
     <KeyboardAvoidingView
       style={[styles.container, { paddingTop: insets.top }]}
@@ -260,9 +250,6 @@ const SignupPage = () => {
             <StapleLogo fontSize={28} />
             <Text style={{ color: '#888', fontSize: 9, letterSpacing: 2, marginTop: 4 }}>TRAIN SMART, LIVE STRONG</Text>
           </View>
-          <TouchableOpacity style={styles.testButton} onPress={testServerConnection}>
-            <Ionicons name="server-outline" size={24} color="#3498DB" />
-          </TouchableOpacity>
         </View>
         
         <Text style={styles.title}>Create Account</Text>
